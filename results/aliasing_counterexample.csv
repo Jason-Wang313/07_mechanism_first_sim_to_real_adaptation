@@ -1,0 +1,3 @@
+domain,passive_statistic,hidden_mechanism,best_repair,reward_gain_comp,reward_slip_safe,argument
+A_gain_loss,s=0.50,actuator gain loss,gain_comp,0,-1,A statistic-only adapter that observes only s must choose the same repair for A and B.
+B_contact_slip,s=0.50,high-command contact slip,slip_safe,-1,0,"Because the required repairs differ, any deterministic adapter of s fails on at least one domain; a randomized adapter has expected regret at least 1/2 under the uniform pair."

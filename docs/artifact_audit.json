@@ -1,0 +1,13 @@
+{
+  "root": "C:\\Users\\wangz\\robotics_60_paper_batch\\07_mechanism_first_sim_to_real_adaptation",
+  "missing": [],
+  "csv_rows": {
+    "docs/related_work_matrix.csv": 1500,
+    "results/summary.csv": 8,
+    "results/success_by_mechanism.csv": 32,
+    "results/probe_confusion.csv": 4,
+    "results/aliasing_counterexample.csv": 2
+  },
+  "paper_pdf_exists": true,
+  "downloads_pdf_exists": true
+}
