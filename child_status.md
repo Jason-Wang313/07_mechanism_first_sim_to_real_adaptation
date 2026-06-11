@@ -1,7 +1,7 @@
 # Child Status - Paper 07
 
 ## Current Stage
-Paper artifact complete locally; final verification passed; preparing git commit and push.
+Complete: paper artifact built, PDF copied, public GitHub repo created, commits pushed.
 
 ## Commands Run
 - `apply_patch` add `plan.md`
@@ -42,6 +42,13 @@ Paper artifact complete locally; final verification passed; preparing git commit
 - `gh repo create 07_mechanism_first_sim_to_real_adaptation --public --source . --remote origin --description "Mechanism-first repair coordinates for sim-to-real adaptation"`
 - `Test-Path C:\Users\wangz\OneDrive\Desktop\07.pdf`
 - `rg -n "Undefined|undefined|LaTeX Error|Emergency stop|Fatal error" paper\main.log`
+- `git add .`
+- `git commit -m "Complete mechanism-first sim-to-real paper artifact"`
+- `git push -u origin master`
+- `apply_patch` rewrite final `child_status.md`
+- `git add child_status.md`
+- `git commit -m "Update child status after push"`
+- `git push`
 
 ## Completed Artifacts
 - `docs/related_work_matrix.csv`: 1500 rows.
@@ -53,7 +60,7 @@ Paper artifact complete locally; final verification passed; preparing git commit
 - `paper/main.tex`, `paper/references.bib`, official ICLR 2026 style and bst files.
 - `paper/main.pdf`: compiled successfully.
 - `C:/Users/wangz/Downloads/07.pdf`: copied final PDF.
-- Public GitHub repo created: `https://github.com/Jason-Wang313/07_mechanism_first_sim_to_real_adaptation`.
+- Public GitHub repo: `https://github.com/Jason-Wang313/07_mechanism_first_sim_to_real_adaptation`.
 
 ## Evidence Snapshot
 - Chosen thesis: mechanism-first repair coordinates for sim-to-real adaptation.
@@ -64,6 +71,17 @@ Paper artifact complete locally; final verification passed; preparing git commit
 - Nuisance nearest neighbor: success 0.773.
 - Nominal no adaptation: success 0.679.
 - Probe confusion is perfect on the saved run.
+
+## Build Verification
+- `paper/main.pdf` exists.
+- `C:/Users/wangz/Downloads/07.pdf` exists, length 238312 bytes at verification time.
+- Log scan found no `Undefined`, `undefined`, `LaTeX Error`, `Emergency stop`, or `Fatal error` matches after the final build.
+- MiKTeX printed its routine update warning, but LaTeX/BibTeX exits were zero.
+
+## GitHub Publication
+- Repo created as public.
+- Initial artifact commit: `c4fddeb`.
+- Final status update committed and pushed after this file was rewritten.
 
 ## Failures
 - No new attempt-3 failures.
@@ -77,5 +95,4 @@ Paper artifact complete locally; final verification passed; preparing git commit
 - Used direct `pdflatex`/`bibtex` passes with explicit timeouts and safe shell exits.
 
 ## Remaining
-- Commit all artifacts.
-- Push to GitHub.
+- None for this child run.
