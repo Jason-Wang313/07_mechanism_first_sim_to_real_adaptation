@@ -19,8 +19,12 @@
 
 \maketitle
 
+\begin{center}
+{\small Submission-hardening version: v2 (2026-06-12).}
+\end{center}
+
 \begin{abstract}
-Most sim-to-real pipelines adapt policies, simulator parameters, domain statistics, or latent context variables. This paper studies a smaller but consequential alternative: adapt the mechanism of failure that determines the repair. We formalize a repair-aliasing boundary in which two target domains share the same passive deployment statistic but require incompatible repairs, making any statistic-only adapter fail on at least one domain. We then introduce mechanism-first repair coordinates: short diagnostic interventions produce residual signatures that classify the target into a repair-equivalence class before controller repair is selected. A runnable contact-control simulator instantiates actuator gain loss, actuation delay, high-command slip, and contact compliance under nuisance-heavy shifts. In this simulator, mechanism-first probing matches the mechanism oracle and reduces mean final error from $0.0076$ for a coarse passive-statistic oracle to $0.0017$, while no adaptation and nuisance nearest-neighbor baselines are substantially worse. The result is not hardware evidence and is not a universal argument against domain randomization or system identification. It is a constructive boundary case showing that, when repair-critical mechanisms are aliased by domain summaries, the adaptation coordinate itself matters.
+Most sim-to-real pipelines adapt policies, simulator parameters, domain statistics, or latent context variables. This paper studies a smaller but consequential alternative: adapt the mechanism of failure that determines the repair. We formalize a repair-aliasing boundary in which two target domains share the same passive deployment statistic but require incompatible repairs, making any statistic-only adapter fail on at least one domain. We then introduce mechanism-first repair coordinates: short diagnostic interventions produce residual signatures that classify the target into a repair-equivalence class before controller repair is selected. A runnable contact-control simulator instantiates actuator gain loss, actuation delay, high-command slip, and contact compliance under nuisance-heavy shifts. In this simulator, mechanism-first probing matches the mechanism oracle and reduces mean final error from $0.0076$ for a coarse passive-statistic oracle to $0.0017$, while no adaptation and nuisance nearest-neighbor baselines are substantially worse. The v2 probe-noise stress narrows the claim: mechanism classification is perfect only with clean hand-designed probes; at probe noise $\sigma=0.04$ accuracy falls to 0.830 and mean final error rises to 0.0294, and at $\sigma=0.12$ accuracy falls to 0.503 with mean final error 0.1098. The result is not hardware evidence and is not a universal argument against domain randomization or system identification. It is a constructive boundary case showing that, when repair-critical mechanisms are aliased by domain summaries, the adaptation coordinate itself matters.
 \end{abstract}
 
 \section{Introduction}
@@ -133,14 +137,32 @@ no adaptation & 0.679 & 0.0919 & -0.1222 \\
 \end{figure}
 
 \paragraph{Results.}
-Mechanism-first probing matches the mechanism oracle on this run. It improves mean final error by about $4.5\times$ compared with the passive-statistic oracle and by more than $50\times$ compared with nuisance nearest neighbor. The probe classifier is perfect in the saved run, with all 1200 test domains assigned to the correct mechanism. Mechanism-level results show where generic coordinates break: gain-only system identification fails under slip, no adaptation fails under delay, and nuisance nearest neighbor is especially brittle under delay and slip.
+Mechanism-first probing matches the mechanism oracle on this run. It improves mean final error by about $4.5\times$ compared with the passive-statistic oracle and by more than $50\times$ compared with nuisance nearest neighbor. The probe classifier is perfect in the clean saved run, with all 1200 test domains assigned to the correct mechanism. Mechanism-level results show where generic coordinates break: gain-only system identification fails under slip, no adaptation fails under delay, and nuisance nearest neighbor is especially brittle under delay and slip.
+
+\begin{table}[t]
+\centering
+\caption{Probe-noise stress over five repeats per noise level. The clean
+hand-designed probe classifier is perfect, but mechanism-first repair degrades
+as diagnostic residuals become noisy.}
+\label{tab:probe-noise}
+\input{../results/probe_noise_table.tex}
+\end{table}
+
+Table~\ref{tab:probe-noise} adds Gaussian noise to the diagnostic residual
+features before mechanism classification. At $\sigma=0.02$, mechanism accuracy
+is still 0.982 and mean final error is 0.0038. At $\sigma=0.04$, accuracy drops
+to 0.830 and mean final error rises to 0.0294, worse than the clean passive
+statistic oracle's 0.0076. At $\sigma=0.12$, mechanism accuracy is 0.503 and
+mean final error is 0.1098. The claim is therefore conditional on reliable
+diagnostic probes; mechanism-first coordinates do not solve probe design or
+noisy mechanism identification.
 
 \paragraph{Counterexample artifact.}
 The repository includes a two-domain aliasing construction in \texttt{results/aliasing\_counterexample.csv}. Domain A has actuator gain loss and is repaired by gain compensation. Domain B has high-command contact slip and is repaired by slip-safe control. Both expose the same passive statistic $s=0.50$. Any adapter observing only $s$ must choose the same repair for both, so it fails on at least one.
 
 \section{Limitations}
 
-The strongest limitation is evidence scale. The simulator is intentionally small and diagnostic; it is not a hardware benchmark. The mechanism library is closed and hand-designed. The probes are also hand-designed, which means the paper does not solve probe synthesis. The passive-statistic baseline is representation-limited by construction; the formal proposition justifies studying that setting, but the experiment should not be read as a defeat of all passive or learned representations. Finally, real sim-to-real failures can be coupled, nonstationary, and out of library.
+The strongest limitation is evidence scale. The simulator is intentionally small and diagnostic; it is not a hardware benchmark. The mechanism library is closed and hand-designed. The probes are also hand-designed, which means the paper does not solve probe synthesis. The v2 probe-noise stress makes this limitation concrete: once diagnostic residuals are noisy enough, the mechanism classifier misidentifies repair classes and the advantage over passive summaries can disappear. The passive-statistic baseline is representation-limited by construction; the formal proposition justifies studying that setting, but the experiment should not be read as a defeat of all passive or learned representations. Finally, real sim-to-real failures can be coupled, nonstationary, and out of library.
 
 \section{Conclusion}
 

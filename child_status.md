@@ -96,3 +96,16 @@ Complete: paper artifact built, PDF copied, public GitHub repo created, commits 
 
 ## Remaining
 - None for this child run.
+
+Exit code: 0
+End time: 2026-06-11 10:18:00 +01:00
+PDF exists: True
+
+## Submission Hardening v2
+
+- Completed: 2026-06-12 21:26:02 +01:00
+- Terminal decision: workshop-only
+- Canonical PDF target: `C:/Users/wangz/Downloads/07.pdf` (240658 bytes)
+- Key experiment change: added diagnostic probe-noise stress over five repeats per noise level.
+- Key result: mechanism accuracy is 1.000 at sigma 0.00 and 0.01, 0.830 at sigma 0.04, and 0.503 at sigma 0.12; mean final error rises from 0.0017 clean to 0.0294 and 0.1098.
+- Claim narrowed: mechanism-first repair requires reliable diagnostic residual probes and remains simulation-only.

@@ -24,6 +24,12 @@
 
 **Response.** The novelty is not "take active samples"; it is that probes are selected to identify repair mechanisms rather than reduce parameter uncertainty or maximize generic information. The method section should define probes by separation of repair-equivalence classes.
 
+## Likely Attack 4b: The Probe Classifier Is Perfect Because Probes Are Clean
+
+**Concern.** The saved clean run has a perfect hand-designed classifier, which makes mechanism-first repair look too easy.
+
+**Response.** The v2 probe-noise stress keeps this honest: mechanism accuracy falls from `1.000` with clean probes to `0.830` at sigma `0.04` and `0.503` at sigma `0.12`. Probe synthesis and robust residual sensing remain future work.
+
 ## Likely Attack 5: Mechanism Library May Be Incomplete
 
 **Concern.** Real robots fail through coupled mechanisms not in the library.

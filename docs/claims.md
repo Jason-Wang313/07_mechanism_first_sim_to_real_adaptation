@@ -12,9 +12,11 @@ Sim-to-real adaptation should sometimes target the mechanism of transfer failure
 
 3. **Mechanism probes can be more repair-relevant than nuisance-heavy summaries in the runnable simulator.** In the saved run, `mechanism_first` matches the mechanism oracle and obtains mean final error `0.0017`, while the coarse passive-statistic oracle obtains `0.0076`, nuisance nearest neighbor obtains `0.0935`, gain-only sysID obtains `0.0550`, and no adaptation obtains `0.0919`.
 
-4. **The literature boundary is crowded around other coordinates.** The 1500-row matrix and 100-paper hostile set show many methods centered on randomized simulation, visual/domain alignment, residual policies, parameter identification, or general policy transfer. The surviving contribution is the repair-equivalence coordinate, not a larger policy or more randomization.
+4. **The probe classifier depends on clean residuals.** The v2 probe-noise stress shows mechanism accuracy drops from `1.000` with clean probes to `0.830` at noise sigma `0.04` and `0.503` at sigma `0.12`, with mean final error rising to `0.0294` and `0.1098`.
 
-5. **The evidence is robotics-relevant but stylized.** The simulator explicitly models embodied control failure mechanisms: actuator gain loss, one-step delay, high-command slip, and contact compliance. It is not hardware evidence.
+5. **The literature boundary is crowded around other coordinates.** The 1500-row matrix and 100-paper hostile set show many methods centered on randomized simulation, visual/domain alignment, residual policies, parameter identification, or general policy transfer. The surviving contribution is the repair-equivalence coordinate, not a larger policy or more randomization.
+
+6. **The evidence is robotics-relevant but stylized.** The simulator explicitly models embodied control failure mechanisms: actuator gain loss, one-step delay, high-command slip, and contact compliance. It is not hardware evidence.
 
 ## Unsupported Or Too Strong
 
@@ -23,6 +25,7 @@ Sim-to-real adaptation should sometimes target the mechanism of transfer failure
 3. The experiment does not cover perception-heavy, deformable-object, multi-contact, or locomotion-scale deployments.
 4. The diagnostic probes are hand-designed, not automatically synthesized.
 5. The passive-statistic oracle is intentionally limited to a coarse nominal outcome bin in the main simulator. The formal lower bound, not the empirical baseline alone, carries the broader non-identifiability point.
+6. The paper does not claim robustness when diagnostic residual probes are noisy or unreliable.
 
 ## Formal Claim Status
 
@@ -38,5 +41,6 @@ This is an impossibility result for aliased statistics, not a universal impossib
 - `results/summary.csv`: aggregate metrics.
 - `results/success_by_mechanism.csv`: mechanism-level metrics.
 - `results/probe_confusion.csv`: diagnostic probe confusion matrix.
+- `results/probe_noise_stress.csv`: v2 diagnostic-noise stress.
 - `results/aliasing_counterexample.csv`: formal counterexample artifact.
 - `results/experiment_report.md`: readable experiment report.

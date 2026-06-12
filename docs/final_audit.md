@@ -61,18 +61,21 @@ Key rerun results:
 
 The probe classifier is perfect on the saved 1200-domain run. The separate `results/aliasing_counterexample.csv` instantiates the formal non-identifiability case.
 
+The v2 probe-noise stress adds the key boundary: mechanism accuracy is 1.000 at noise sigma 0.00 and 0.01, 0.982 at 0.02, 0.830 at 0.04, 0.608 at 0.08, and 0.503 at 0.12. Mean final error rises from 0.0017 clean to 0.0294 at sigma 0.04 and 0.1098 at sigma 0.12.
+
 ## 9. Biggest weaknesses
 
 - No hardware validation.
 - The simulator is one-dimensional and stylized.
 - The mechanism library is closed.
 - Probes are hand-designed rather than synthesized.
+- Diagnostic residual noise can erase the advantage over passive summaries.
 - The coarse passive-statistic oracle is intentionally representation-limited; the paper must not imply all passive or learned representations fail.
 - The literature matrix is broad but partly automatic and should not be treated as perfect manual scholarship.
 
 ## 10. Paper-readiness judgment
 
-Workshop. The artifact is complete, runnable, and honestly positioned, but a full ICLR submission would need richer simulation, hardware evidence, or a stronger probe-synthesis result.
+Workshop-only for immediate submission; strong-revise for a main-conference target. The artifact is complete, runnable, and honestly positioned, and v2 makes the probe-noise boundary explicit. A full ICLR submission would need richer simulation, hardware evidence, or a stronger probe-synthesis result.
 
 ## 11. Exact Downloads PDF path
 
@@ -87,3 +90,16 @@ Workshop. The artifact is complete, runnable, and honestly positioned, but a ful
 `present`
 
 The orchestrator copied `C:\Users\wangz\Downloads\07.pdf` to `C:\Users\wangz\OneDrive\Desktop\07.pdf` after the child PDF build. Both files have matching size and timestamp.
+
+## Orchestrator Desktop Copy
+
+Checked: 2026-06-11 10:18:02 +01:00
+Downloads PDF: C:/Users/wangz/Downloads/07.pdf
+Result: copy script exit 0 log C:\Users\wangz\robotics_60_paper_batch\logs\desktop_copy_07_20260611_101800.log
+
+## Submission-Hardening v2
+
+Checked: 2026-06-12 21:26:02 +01:00
+Terminal decision: workshop-only
+Key change: added diagnostic probe-noise stress and narrowed the claim to reliable probe residuals.
+Canonical PDF target: C:/Users/wangz/Downloads/07.pdf, 240658 bytes

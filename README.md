@@ -14,6 +14,7 @@ The project studies a narrow but important sim-to-real failure mode: adapting to
 - `docs/claims.md`: supported and unsupported claims.
 - `experiments/mechanism_first_sim.py`: runnable contact-control simulator.
 - `results/`: saved CSV results and plots.
+- `results/probe_noise_stress.csv`: v2 diagnostic probe-noise stress.
 - `paper/main.tex`: anonymous ICLR-style paper source.
 
 ## Reproduce Evidence
@@ -41,3 +42,12 @@ The paper uses the official ICLR 2026 style and bibliography files downloaded fr
 ## Current Readiness
 
 This is a complete runnable paper artifact, but the evidence is simulation-only. The honest readiness judgment in `docs/final_audit.md` is expected to be `workshop` or `revise` unless hardware validation is added.
+
+## Submission-Hardening v2
+
+The v2 pass adds a probe-noise stress for the mechanism classifier. With clean
+hand-designed probes, mechanism-first matches the mechanism oracle. Under
+Gaussian probe-feature noise, mechanism accuracy drops to 0.830 at
+`sigma=0.04` and 0.503 at `sigma=0.12`; mean final error rises to 0.0294 and
+0.1098 respectively. The supported claim is now explicitly conditional on
+reliable diagnostic probes.

@@ -68,6 +68,17 @@ Passive statistic table bins learned: 2.
 | gain | gain | 315 |
 | slip | slip | 300 |
 
+## Probe Noise Stress
+
+| Probe noise sigma | Mechanism accuracy | Success | Mean final error |
+| ---: | ---: | ---: | ---: |
+| 0.00 | 1.000 | 1.000 | 0.0017 |
+| 0.01 | 1.000 | 1.000 | 0.0017 |
+| 0.02 | 0.982 | 0.998 | 0.0038 |
+| 0.04 | 0.830 | 0.967 | 0.0294 |
+| 0.08 | 0.608 | 0.880 | 0.0786 |
+| 0.12 | 0.503 | 0.825 | 0.1098 |
+
 ## Interpretation
 
 The passive-statistic oracle is deliberately strong within its representation: it is allowed to pick the empirically best repair for each nominal-rollout statistic bin. Its weakness is representational, not optimization-related. When different hidden mechanisms share similar passive summaries but require incompatible repairs, it must collapse them. The mechanism-first probe uses intervention responses instead, so its selected repair tracks the failure cause.
