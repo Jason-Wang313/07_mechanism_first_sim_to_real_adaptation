@@ -14,9 +14,12 @@ TARGET = 1.0
 HORIZON = 8
 REPAIRS = ["none", "gain_comp", "delay_brake", "slip_safe", "preload"]
 KINDS = ["gain", "delay", "slip", "compliance"]
+PROBE_NOISE_LEVELS = [0.0, 0.01, 0.02, 0.04, 0.08, 0.12]
 
 
 def update_status(stage, current_step, commands, failures=None, recovery_steps=None, notes=None):
+    if os.environ.get("ROBOTICS_SKIP_STATUS") == "1":
+        return
     failures = failures or ["none"]
     recovery_steps = recovery_steps or ["none"]
     notes = notes or []
@@ -178,6 +181,13 @@ def probe_features(domain):
     }
 
 
+def noisy_probe_features(domain, rng, sigma):
+    features = probe_features(domain)
+    if sigma <= 0:
+        return features
+    return {key: value + rng.gauss(0.0, sigma) for key, value in features.items()}
+
+
 def classify_mechanism(features):
     if abs(features["high_first"]) < 0.045 and features["delayed_second_jump"] > 0.30:
         return "delay"
@@ -308,6 +318,35 @@ def evaluate(seed=7, train_n=900, test_n=1200):
     return train, test, rows, confusion, passive_table, robust
 
 
+def evaluate_probe_noise(seed=97, test_n=1200, repeats=5):
+    rows = []
+    for sigma in PROBE_NOISE_LEVELS:
+        for repeat in range(repeats):
+            rng = random.Random(seed + 1009 * repeat + int(10000 * sigma))
+            items = []
+            correct = 0
+            confusion = Counter()
+            for _ in range(test_n):
+                domain = make_domain(rng)
+                features = noisy_probe_features(domain, rng, sigma)
+                predicted_kind = classify_mechanism(features)
+                correct += int(predicted_kind == domain["kind"])
+                confusion[(domain["kind"], predicted_kind)] += 1
+                result = rollout(domain, repair_for_kind(predicted_kind))
+                items.append(result)
+            rows.append({
+                "probe_noise_sigma": sigma,
+                "repeat": repeat,
+                "n": test_n,
+                "mechanism_accuracy": correct / test_n,
+                "success_rate": sum(int(r["success"]) for r in items) / test_n,
+                "mean_final_error": sum(float(r["final_error"]) for r in items) / test_n,
+                "mean_reward": sum(float(r["reward"]) for r in items) / test_n,
+                "misclassified": test_n - correct,
+            })
+    return rows
+
+
 def aggregate(rows):
     grouped = defaultdict(list)
     by_kind = defaultdict(list)
@@ -372,6 +411,31 @@ def write_aliasing_counterexample():
         rows,
         ["domain", "passive_statistic", "hidden_mechanism", "best_repair", "reward_gain_comp", "reward_slip_safe", "argument"],
     )
+
+
+def write_probe_noise_table(noise_rows):
+    grouped = defaultdict(list)
+    for row in noise_rows:
+        grouped[float(row["probe_noise_sigma"])].append(row)
+    lines = [
+        "\\begin{tabular}{lrrrrrr}",
+        "\\toprule",
+        "Metric & 0.00 & 0.01 & 0.02 & 0.04 & 0.08 & 0.12 \\\\",
+        "\\midrule",
+    ]
+    for metric, label in [("mechanism_accuracy", "Mechanism accuracy"), ("success_rate", "Success"), ("mean_final_error", "Mean final error")]:
+        values = []
+        for sigma in PROBE_NOISE_LEVELS:
+            vals = grouped[sigma]
+            mean = sum(float(r[metric]) for r in vals) / len(vals)
+            if metric == "mean_final_error":
+                values.append(f"{mean:.4f}")
+            else:
+                values.append(f"{mean:.3f}")
+        lines.append(f"{label} & " + " & ".join(values) + " \\\\")
+    lines.extend(["\\bottomrule", "\\end{tabular}"])
+    with open(os.path.join(RESULTS_DIR, "probe_noise_table.tex"), "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
 
 
 def write_plots(summary, kind_rows, confusion):
@@ -451,7 +515,7 @@ def write_plots(summary, kind_rows, confusion):
     return True
 
 
-def write_report(summary, kind_rows, confusion, passive_table, robust):
+def write_report(summary, kind_rows, confusion, passive_table, robust, noise_rows):
     lines = [
         "# Experiment Report",
         "",
@@ -489,6 +553,22 @@ def write_report(summary, kind_rows, confusion, passive_table, robust):
     ])
     for (true, pred), count in sorted(confusion.items()):
         lines.append(f"| {true} | {pred} | {count} |")
+    grouped_noise = defaultdict(list)
+    for row in noise_rows:
+        grouped_noise[float(row["probe_noise_sigma"])].append(row)
+    lines.extend([
+        "",
+        "## Probe Noise Stress",
+        "",
+        "| Probe noise sigma | Mechanism accuracy | Success | Mean final error |",
+        "| ---: | ---: | ---: | ---: |",
+    ])
+    for sigma in PROBE_NOISE_LEVELS:
+        vals = grouped_noise[sigma]
+        acc = sum(float(r["mechanism_accuracy"]) for r in vals) / len(vals)
+        success = sum(float(r["success_rate"]) for r in vals) / len(vals)
+        err = sum(float(r["mean_final_error"]) for r in vals) / len(vals)
+        lines.append(f"| {sigma:.2f} | {acc:.3f} | {success:.3f} | {err:.4f} |")
     lines.extend([
         "",
         "## Interpretation",
@@ -529,8 +609,15 @@ def main():
     confusion_rows = [{"true": k[0], "predicted": k[1], "count": v} for k, v in sorted(confusion.items())]
     write_csv(os.path.join(RESULTS_DIR, "probe_confusion.csv"), confusion_rows, ["true", "predicted", "count"])
     write_aliasing_counterexample()
+    noise_rows = evaluate_probe_noise()
+    write_csv(
+        os.path.join(RESULTS_DIR, "probe_noise_stress.csv"),
+        noise_rows,
+        ["probe_noise_sigma", "repeat", "n", "mechanism_accuracy", "success_rate", "mean_final_error", "mean_reward", "misclassified"],
+    )
+    write_probe_noise_table(noise_rows)
     plotted = write_plots(summary, kind_rows, confusion)
-    write_report(summary, kind_rows, confusion, passive_table, robust)
+    write_report(summary, kind_rows, confusion, passive_table, robust, noise_rows)
     mechanism_first = next(r for r in summary if r["method"] == "mechanism_first")
     passive = next(r for r in summary if r["method"] == "passive_stat_oracle")
     update_status(
