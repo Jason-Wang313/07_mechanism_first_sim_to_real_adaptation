@@ -1,0 +1,5 @@
+suite,condition,seed,robust_repair,passive_coarse_bins,passive_medium_bins,passive_fine_bins,passive_trace_bins,probe_reject_threshold
+threshold_sensitivity,0.03,7100,delay_brake,2,22,73,118,875497423485.9602
+threshold_sensitivity,0.03,7101,delay_brake,2,26,77,124,767778058318.3774
+threshold_sensitivity,0.03,7102,delay_brake,2,23,70,113,1343694077647.6553
+threshold_sensitivity,0.03,7103,delay_brake,2,20,61,109,396211320484.91504

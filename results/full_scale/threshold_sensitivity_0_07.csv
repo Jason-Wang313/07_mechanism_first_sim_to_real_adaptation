@@ -1,0 +1,6 @@
+suite,condition,seed,train_n,test_n,method,repair_library_size,success_threshold,severity,nuisance_strength,n,success_rate,mean_final_error,p95_final_error,mean_reward,mean_regret,p95_regret,repair_accuracy,mechanism_accuracy,unknown_reject_rate
+threshold_sensitivity,threshold_0.07,7100,650,800,nominal_no_adaptation,5,0.07,1.0,1.0,800,0.69375,0.08746206253560672,0.3336060225505554,-0.11769455818931035,0.09586056183208852,0.37155890295759064,0.0,,
+threshold_sensitivity,threshold_0.07,7100,650,800,passive_stat_fine,5,0.07,1.0,1.0,800,0.995,0.0028028206318492207,0.011157634912760117,-0.023926859579449247,0.002092863222227535,0.019284453523750095,0.86875,,
+threshold_sensitivity,threshold_0.07,7100,650,800,probe_nearest_neighbor,5,0.07,1.0,1.0,800,1.0,0.0014960243385319988,0.008325548524521165,-0.02183399635722176,0.0,0.0,1.0,1.0,0.0
+threshold_sensitivity,threshold_0.07,7100,650,800,mechanism_first,5,0.07,1.0,1.0,800,1.0,0.0014960243385319988,0.008325548524521165,-0.02183399635722176,0.0,0.0,1.0,1.0,0.0
+threshold_sensitivity,threshold_0.07,7100,650,800,oracle_best_repair,5,0.07,1.0,1.0,800,1.0,0.0014960243385319988,0.008325548524521165,-0.02183399635722176,0.0,0.0,1.0,,
