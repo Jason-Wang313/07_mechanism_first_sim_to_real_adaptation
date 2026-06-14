@@ -1,0 +1,7 @@
+suite,condition,seed,robust_repair,passive_coarse_bins,passive_medium_bins,passive_fine_bins,passive_trace_bins,probe_reject_threshold
+main_sweep,uniform,7100,delay_brake,2,22,68,107,438598154260.48267
+main_sweep,uniform,7101,delay_brake,2,24,72,126,661498330775.3556
+main_sweep,uniform,7102,delay_brake,2,24,68,111,816683819787.0203
+main_sweep,uniform,7103,delay_brake,2,24,67,115,821827879038.0841
+main_sweep,uniform,7104,delay_brake,2,23,71,117,915959354835.91
+main_sweep,uniform,7105,delay_brake,2,23,75,116,700293577500.7192

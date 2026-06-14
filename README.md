@@ -13,18 +13,25 @@ The project studies a narrow but important sim-to-real failure mode: adapting to
 - `docs/hostile_prior_work.md`: 100-paper hostile prior-work set.
 - `docs/claims.md`: supported and unsupported claims.
 - `experiments/mechanism_first_sim.py`: runnable contact-control simulator.
-- `results/`: saved CSV results and plots.
-- `results/probe_noise_stress.csv`: v2 diagnostic probe-noise stress.
-- `paper/main.tex`: anonymous ICLR-style paper source.
+- `experiments/full_scale_mechanism_first.py`: full-scale suite runner.
+- `scripts/summarize_full_scale_results.py`: aggregate/figure/table finalizer.
+- `results/full_scale/`: compact full-scale CSVs, generated tables, figures summary, and formal counterexamples.
+- `paper/figures/`: manuscript figures regenerated from full-scale CSVs.
+- `paper/main.tex`: final 25-page anonymous ICLR-style paper source.
 
 ## Reproduce Evidence
 
 ```powershell
 python experiments\mechanism_first_sim.py
+python experiments\full_scale_mechanism_first.py --profile smoke
+python scripts\summarize_full_scale_results.py
 python scripts\audit_artifacts.py
 ```
 
-The simulator writes aggregate metrics to `results/summary.csv`, mechanism-level metrics to `results/success_by_mechanism.csv`, and figures to `results/*.png`.
+The original simulator writes aggregate metrics to `results/summary.csv`.
+The final full-scale evidence is in `results/full_scale/`; the summary reports
+1,151 compact rows, 756,750 represented method-domain evaluations, 101 artifact
+metadata rows, and 20 constructive passive-aliasing counterexamples.
 
 ## Build Paper
 
@@ -41,13 +48,8 @@ The paper uses the official ICLR 2026 style and bibliography files downloaded fr
 
 ## Current Readiness
 
-This is a complete runnable paper artifact, but the evidence is simulation-only. The honest readiness judgment in `docs/final_audit.md` is expected to be `workshop` or `revise` unless hardware validation is added.
-
-## Submission-Hardening v2
-
-The v2 pass adds a probe-noise stress for the mechanism classifier. With clean
-hand-designed probes, mechanism-first matches the mechanism oracle. Under
-Gaussian probe-feature noise, mechanism accuracy drops to 0.830 at
-`sigma=0.04` and 0.503 at `sigma=0.12`; mean final error rises to 0.0294 and
-0.1098 respectively. The supported claim is now explicitly conditional on
-reliable diagnostic probes.
+Final full-scale batch artifact: the manuscript compiles to 25 pages and the
+canonical final PDF is `C:/Users/wangz/Downloads/07.pdf` after verification.
+The claim remains honestly bounded to simulation: mechanism-first repair
+coordinates are supported in the closed-library simulator, with explicit probe
+noise, missing-repair, and mixed-mechanism failure cases.

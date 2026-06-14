@@ -1,0 +1,4 @@
+suite,condition,seed,robust_repair,passive_coarse_bins,passive_medium_bins,passive_fine_bins,passive_trace_bins,probe_reject_threshold
+unknown_mixed,slip_compliance,7100,delay_brake,2,22,69,114,696788806600.8818
+unknown_mixed,slip_compliance,7101,delay_brake,2,23,66,110,1025340840548.2249
+unknown_mixed,slip_compliance,7102,delay_brake,2,23,65,118,474540737554.6908

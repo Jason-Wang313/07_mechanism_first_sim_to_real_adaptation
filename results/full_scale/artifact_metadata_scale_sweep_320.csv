@@ -1,0 +1,5 @@
+suite,condition,seed,robust_repair,passive_coarse_bins,passive_medium_bins,passive_fine_bins,passive_trace_bins,probe_reject_threshold
+scale_sweep,train_320,7100,delay_brake,2,22,49,87,2208495322821.0996
+scale_sweep,train_320,7101,delay_brake,2,21,51,85,4579405631285.797
+scale_sweep,train_320,7102,delay_brake,2,19,45,84,3071231300062.366
+scale_sweep,train_320,7103,delay_brake,2,19,55,80,6950944844616.494

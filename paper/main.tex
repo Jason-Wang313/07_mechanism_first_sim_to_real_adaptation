@@ -19,161 +19,1398 @@
 
 \maketitle
 
-\begin{center}
-{\small Submission-hardening version: v2 (2026-06-12).}
-\end{center}
-
 \begin{abstract}
-Most sim-to-real pipelines adapt policies, simulator parameters, domain statistics, or latent context variables. This paper studies a smaller but consequential alternative: adapt the mechanism of failure that determines the repair. We formalize a repair-aliasing boundary in which two target domains share the same passive deployment statistic but require incompatible repairs, making any statistic-only adapter fail on at least one domain. We then introduce mechanism-first repair coordinates: short diagnostic interventions produce residual signatures that classify the target into a repair-equivalence class before controller repair is selected. A runnable contact-control simulator instantiates actuator gain loss, actuation delay, high-command slip, and contact compliance under nuisance-heavy shifts. In this simulator, mechanism-first probing matches the mechanism oracle and reduces mean final error from $0.0076$ for a coarse passive-statistic oracle to $0.0017$, while no adaptation and nuisance nearest-neighbor baselines are substantially worse. The v2 probe-noise stress narrows the claim: mechanism classification is perfect only with clean hand-designed probes; at probe noise $\sigma=0.04$ accuracy falls to 0.830 and mean final error rises to 0.0294, and at $\sigma=0.12$ accuracy falls to 0.503 with mean final error 0.1098. The result is not hardware evidence and is not a universal argument against domain randomization or system identification. It is a constructive boundary case showing that, when repair-critical mechanisms are aliased by domain summaries, the adaptation coordinate itself matters.
+Most sim-to-real systems adapt policies, simulator parameters, randomized-domain
+distributions, domain statistics, or latent context variables. This paper studies
+a smaller but deployment-critical coordinate: the hidden failure mechanism that
+determines the repair. We formalize repair-equivalence classes and show a simple
+aliasing boundary: if two target domains share the same observed statistic but
+require margin-separated incompatible repairs, any statistic-only adapter must
+fail on at least one of them. We then instantiate mechanism-first adaptation in a
+runnable contact-control simulator with actuator gain loss, actuation delay,
+high-command slip, and contact compliance under nuisance-heavy shifts. Short
+diagnostic interventions produce residual signatures, classify the target into a
+repair-equivalence class, and select a controller repair. A full-scale
+simulation suite covers 1,151 compact aggregate rows and 756,750 represented
+method-domain evaluations across main comparisons, probe-noise taxonomies,
+probe-set ablations, mechanism-imbalance sweeps, passive-summary richness,
+data-scale controls, repair-library ablations, out-of-library mechanisms,
+threshold sensitivity, and constructive counterexamples. In the main sweep,
+mechanism-first repair matches the mechanism and best-repair oracles with mean
+final error 0.0018, while no adaptation has 0.0945, nuisance nearest neighbor has
+0.1014, gain-only system identification has 0.0546, a coarse passive statistic
+has 0.0073, and a fine passive statistic has 0.0026. The result is not hardware
+evidence and is not a universal argument against randomization, system
+identification, or learned representations. It is a constructive boundary case:
+when repair-critical mechanisms are aliased by the chosen deployment statistic,
+the adaptation coordinate itself matters.
 \end{abstract}
 
 \section{Introduction}
 
-Sim-to-real transfer is often framed as a coverage or alignment problem: randomize enough simulator factors, estimate the target dynamics, learn a domain-invariant representation, or adapt a residual policy until deployment behavior improves \citep{tobin2017domain,peng2018dynamics,tan2018agile,yu2017uposi,chebotar2019closing,muratore2022robot}. These coordinates are useful, but they can be mismatched to a deployment decision. A robot does not always need the full target domain distribution. It often needs to know which repair to apply: compensate actuator gain, predict through delay, avoid slip-inducing commands, preload a compliant contact, or stop because the failure is out of library.
+Sim-to-real transfer is often framed as a coverage or alignment problem. A robot
+is trained under broad domain randomization, the simulator is calibrated against
+target observations, source and target features are aligned, or a residual policy
+is adapted until deployment behavior improves \citep{tobin2017domain,
+peng2018dynamics,tan2018agile,yu2017uposi,chebotar2019closing,
+muratore2022robot}. These coordinates are useful and often necessary. They are
+also not always the coordinate that the deployment decision requires. A robot
+approaching a target contact may not need the complete target-domain
+distribution. It may need to know whether to compensate low actuator gain,
+predict through delay, avoid high commands that induce slip, preload a compliant
+contact, or declare that the target failure is out of the repair library.
 
-This paper asks what changes if the deploy-time object of adaptation is the failure mechanism that determines the repair. The answer is not ``more data'' or a larger policy. The central mechanism is a repair-equivalence coordinate: target domains are grouped by the intervention that makes the controller work, even when their nuisance variables or exact physical parameters differ.
+This paper studies that distinction. The central claim is that some transfer
+failures are caused not by weak optimization over a chosen statistic, but by
+choosing a statistic that is not sufficient for repair selection. A domain
+embedding may be good for recognizing appearance, a nominal rollout statistic may
+be good for estimating average task difficulty, and a simulator parameter vector
+may be useful for physical interpretation. None of these is guaranteed to
+separate the mechanisms that imply different controller repairs.
 
-The contribution is intentionally narrow.
+We therefore use a repair-equivalence coordinate. Domains are grouped together
+when the same repair makes the controller work, even if their nuisance variables,
+appearance features, or exact physical parameters differ. Conversely, domains
+with similar passive observations are separated when they require incompatible
+repairs. The adapter first probes the target with short diagnostic actions,
+observes residual signatures, classifies the repair-equivalence class, and then
+selects a repair. This is a modest closed-library setting. It is not intended to
+solve open-world robot diagnosis. Its purpose is to expose a sharp boundary that
+is easy to miss when adaptation is described only as distribution matching.
+
+\paragraph{Contributions.}
+The paper makes five contributions.
 \begin{itemize}
-    \item We define repair aliasing and prove a small boundary result: if two domains have the same statistic but different margin-separated optimal repairs, any adapter that observes only that statistic must incur regret on at least one.
-    \item We propose mechanism-first repair selection, where short diagnostic probes expose residual signatures for repair-equivalence classes.
-    \item We provide a runnable contact-control simulator with four embodied failure mechanisms and nuisance-heavy shifts. The experiment demonstrates the coordinate mismatch in a controlled setting.
-    \item We provide a 1500-paper landscape matrix, a 100-paper hostile prior-work set, and an explicit claim audit to keep the novelty boundary honest.
+    \item It defines repair-equivalence classes and repair aliasing for
+    sim-to-real adaptation.
+    \item It proves a small lower-bound proposition: when a statistic aliases
+    two domains with different margin-separated optimal repairs, any adapter
+    observing only that statistic incurs regret.
+    \item It implements a runnable mechanism-first contact-control simulator
+    with four hidden failure mechanisms and nuisance-heavy domain variables.
+    \item It reports a full-scale evidence suite with main baselines, stronger
+    passive summaries, nearest-neighbor comparators, noise taxonomies, probe
+    ablations, imbalance controls, data-scale sweeps, repair-library ablations,
+    out-of-library controls, threshold sensitivity, and formal counterexamples.
+    \item It gives an explicit real-robot audit protocol and falsification
+    criteria so the simulation result is not overclaimed as hardware evidence.
 \end{itemize}
 
-We do not claim real-robot superiority, broad replacement of domain randomization, or a solved open-world failure taxonomy. The evidence supports a more modest thesis: some sim-to-real failures are not primarily failures of optimization over the chosen statistic; they are failures caused by choosing the wrong adaptation coordinate.
+\paragraph{Scope.}
+The evidence supports a narrow thesis: if the deployment statistic collapses
+repair-critical mechanisms, adapting over that statistic is the wrong target. The
+evidence does not show that mechanism-first probing is always better than domain
+randomization or system identification. Indeed, the experiments include cases
+where richer passive summaries and probe-nearest-neighbor baselines match the
+mechanism-first rule in this stylized simulator. That is a useful outcome rather
+than a problem for the paper: it clarifies that the mechanism-first contribution
+is a coordinate claim, not a claim of universal algorithmic dominance.
 
 \section{Problem Setting}
 
-Let $d \in \mathcal{D}$ denote a target deployment domain. A robot observes limited deployment information and must choose a repair $r \in \mathcal{R}$ before executing a controller. The loss $L(d,r)$ measures task error, safety cost, or negative reward after applying repair $r$ in domain $d$.
+Let $d \in \mathcal{D}$ denote a target deployment domain. A controller must
+select a repair $r \in \mathcal{R}$ before or during deployment. The loss
+$L(d,r)$ measures task error, safety cost, or negative reward after repair $r$ is
+applied in domain $d$. The best available repair is
+\[
+r^\star(d) \in \arg\min_{r \in \mathcal{R}} L(d,r).
+\]
+We focus on the finite-repair case because many practical robot adaptation
+systems have a bounded menu of interventions: change impedance, reduce speed,
+increase force, add delay compensation, use a slip-safe controller, or abort.
 
 \begin{definition}[Repair-equivalence]
-Two domains $d_i,d_j$ are repair-equivalent under loss $L$ and repair set $\mathcal{R}$ if
+Two domains $d_i,d_j$ are repair-equivalent under loss $L$ and repair set
+$\mathcal{R}$ if
 \[
-\arg\min_{r\in \mathcal{R}} L(d_i,r) = \arg\min_{r\in \mathcal{R}} L(d_j,r).
+\arg\min_{r\in \mathcal{R}} L(d_i,r)
+= \arg\min_{r\in \mathcal{R}} L(d_j,r).
 \]
-A mechanism-first adapter estimates this equivalence class, not necessarily the full domain or simulator parameter vector.
+A mechanism-first adapter estimates this equivalence class or its repair label,
+not necessarily the full physical parameter vector.
 \end{definition}
 
-Many sim-to-real methods implicitly use a statistic $\sigma(d)$: visual appearance features, nominal rollout outcomes, estimated dynamics parameters, randomized-domain embeddings, or learned latent context. These statistics can be repair-relevant, but they need not be. The failure mode studied here is that $\sigma$ aliases domains that require different repairs.
+\begin{definition}[Repair aliasing]
+Let $\sigma(d)$ be a statistic available to an adapter. A pair
+$(d_a,d_b)$ is repair-aliased by $\sigma$ if $\sigma(d_a)=\sigma(d_b)$ but
+$r^\star(d_a) \neq r^\star(d_b)$.
+\end{definition}
 
-\begin{proposition}[Repair aliasing for statistic-only adapters]
-Assume there exist two domains $d_a,d_b$ and two distinct repairs $r_a,r_b$ such that $\sigma(d_a)=\sigma(d_b)$, $r_a$ is the unique optimal repair for $d_a$, $r_b$ is the unique optimal repair for $d_b$, and every non-optimal repair has regret at least $\Delta>0$ in its domain. Then any deterministic adapter $g(\sigma(d))$ incurs regret at least $\Delta$ on either $d_a$ or $d_b$. Any randomized adapter that conditions only on $\sigma(d)$ incurs expected regret at least $\Delta/2$ under the uniform distribution over $\{d_a,d_b\}$.
+The statistic $\sigma$ may be a hand-designed summary, an image feature, a
+nominal rollout outcome, an inferred simulator parameter, or a learned context
+embedding. The repair-aliasing definition does not say that $\sigma$ is useless.
+It only says that $\sigma$ is not sufficient for the specific decision of
+selecting a repair from $\mathcal{R}$.
+
+\begin{proposition}[Statistic-only repair aliasing]
+Assume there exist two domains $d_a,d_b$ and two distinct repairs $r_a,r_b$ such
+that $\sigma(d_a)=\sigma(d_b)$, $r_a$ is the unique optimal repair for $d_a$,
+$r_b$ is the unique optimal repair for $d_b$, and every non-optimal repair has
+regret at least $\Delta>0$ in its domain. Then any deterministic adapter
+$g(\sigma(d))$ incurs regret at least $\Delta$ on either $d_a$ or $d_b$. Any
+randomized adapter that conditions only on $\sigma(d)$ incurs expected regret at
+least $\Delta/2$ under the uniform distribution over $\{d_a,d_b\}$.
 \end{proposition}
 
 \begin{proof}
-Since $\sigma(d_a)=\sigma(d_b)$, a deterministic statistic-only adapter must return the same repair for both domains. If it returns $r_a$, it is non-optimal on $d_b$ and has regret at least $\Delta$; if it returns $r_b$, it is non-optimal on $d_a$; any other repair is non-optimal on both. For a randomized adapter, let $p_a$ and $p_b$ be the probabilities assigned to $r_a$ and $r_b$ after observing the shared statistic. The expected regret is at least
+Since $\sigma(d_a)=\sigma(d_b)$, a deterministic statistic-only adapter returns
+the same repair for both domains. If it returns $r_a$, it is non-optimal on
+$d_b$ and has regret at least $\Delta$; if it returns $r_b$, it is non-optimal on
+$d_a$; and any other repair is non-optimal on both. For a randomized adapter, let
+$p_a$ and $p_b$ be the probabilities assigned to $r_a$ and $r_b$ after observing
+the shared statistic. The expected regret is at least
 \[
 \frac{\Delta}{2}(1-p_a) + \frac{\Delta}{2}(1-p_b)
 = \Delta\left(1-\frac{p_a+p_b}{2}\right).
 \]
-Because $r_a\neq r_b$, $p_a+p_b\leq 1$, so the expected regret is at least $\Delta/2$.
+Because $r_a\neq r_b$, $p_a+p_b\leq 1$, so the expected regret is at least
+$\Delta/2$.
 \end{proof}
 
-This proposition is mathematically simple. Its role is to make the sim-to-real boundary explicit: if the chosen statistic merges repair-critical mechanisms, no optimizer over that statistic can recover the missing distinction.
+The proposition is deliberately simple. Its role is to identify a boundary that
+can be hidden inside empirical adaptation pipelines. If the chosen observation
+coordinate loses the distinction required for repair, no amount of optimization
+over that coordinate can recover it.
 
 \section{Mechanism-First Repair Coordinates}
 
-The mechanism-first adapter assumes a closed library of repairable mechanisms $\mathcal{M}$ and repairs $\mathcal{R}$. Each mechanism $m\in\mathcal{M}$ induces a diagnostic residual signature under a small set of probe actions. The adapter executes probes, classifies the mechanism, and applies the corresponding repair:
+The mechanism-first adapter assumes a closed library of repairable mechanisms
+$\mathcal{M}$ and repairs $\mathcal{R}$. Each mechanism $m\in\mathcal{M}$ is
+associated with a diagnostic residual signature under a small set of probe
+actions. The adapter executes probes, maps the observed residuals to a mechanism
+label, and applies the corresponding repair:
 \[
-d \xrightarrow{\text{probe}} \phi(d) \xrightarrow{h} \hat{m} \xrightarrow{\rho} r.
+d \xrightarrow{\mathrm{probe}} \phi(d) \xrightarrow{h} \hat{m}
+\xrightarrow{\rho} r .
 \]
-Here $\phi(d)$ is not a passive domain summary. It is an intervention response chosen because the candidate mechanisms should separate under it. In the simulator, low pulses, high pulses, and alternating pulses distinguish gain loss, actuation delay, slip, and compliance. The repair map $\rho$ then selects gain compensation, delay-aware braking, slip-safe commands, or preload.
+Here $\phi(d)$ is not a passive domain summary. It is an intervention response
+chosen because the candidate mechanisms should separate under it. In the
+simulator, low pulses, high pulses, and alternating pulses distinguish gain
+loss, delay, high-command slip, and compliance.
 
-This differs from full system identification. A gain-loss domain with gains $0.49$ and $0.61$ can be repair-equivalent if both require the same gain-compensation controller. Conversely, two domains can have similar nominal final positions but different repairs because one is delayed and another slips under high commands. The target variable is the intervention that repairs deployment, not the complete physical state.
+\paragraph{Not full system identification.}
+Mechanism-first adaptation can be coarser than system identification. A gain of
+0.49 and a gain of 0.61 may be different physical parameters but the same repair
+class if both require gain compensation. Conversely, two domains can have nearly
+identical passive rollout summaries but require different repairs because one is
+delayed and another slips under high commands. The target variable is the repair
+coordinate, not the complete dynamics model.
 
-\section{Relationship to Prior Work}
+\paragraph{Closed-library assumption.}
+The mechanism-first rule is useful only when the repair library contains an
+appropriate response. The experiments therefore include repair-library ablations
+and mixed mechanisms. These negative controls are central. If the correct repair
+is removed, mechanism classification can remain accurate while repair quality
+falls. If the target mechanism is out of library, a confident in-library label
+can be harmful unless a rejection mechanism works.
 
-The literature sweep collected 1500 robotics and sim-to-real papers, with 300 serious-skim entries, 240 deep-read entries, and a 100-paper hostile set. The crowded boundaries are domain randomization, policy transfer, system identification, domain adaptation, residual learning, contact modeling, tactile transfer, and robust locomotion.
+\section{Simulator}
 
-Domain randomization trains across randomized simulator factors so policies tolerate visual and dynamics variation \citep{tobin2017domain,peng2018dynamics,muratore2022robot}. This paper does not dispute its usefulness. The boundary case is that randomized factors may cover nuisance variation while still leaving the deploy-time repair mechanism unidentified.
+The experiment is a one-dimensional contact-control task. A controller pushes an
+object from position 0 to target position 1 within eight control steps. Each
+deployment domain samples one hidden mechanism and nuisance variables. The
+controller observes neither the mechanism label nor the true parameters.
 
-System-identification methods estimate physical parameters or update simulator dynamics before transfer \citep{tan2018agile,yu2017uposi,chebotar2019closing}. Mechanism-first adaptation is coarser: it only needs to identify the repair-equivalence class. This can be easier than estimating a full parameter vector, but it is also less general.
-
-Domain adaptation and image translation align source and target distributions for perception or control \citep{shi2023cyclegan,yuan2022assembly}. The repair-aliasing result highlights a risk: distributional alignment can merge domains if the aligned statistic is not repair sufficient.
-
-Contact-rich and tactile sim-to-real work shows that physical interaction signals matter for transfer \citep{ding2021tactile,lin2023bitouch}. The present paper is closest in spirit to these works, but the claimed contribution is not that contact matters. It is that contact residuals should be organized around the repair they imply.
-
-\section{Runnable Evidence}
-
-\paragraph{Simulator.}
-The experiment is a one-dimensional contact-control task. A controller pushes an object to a target within eight steps. Each deployment domain samples one hidden mechanism:
+\paragraph{Mechanisms.}
+The four in-library mechanisms are:
 \begin{itemize}
-    \item actuator gain loss,
-    \item one-step actuation delay,
-    \item high-command slip,
-    \item contact compliance before motion begins.
+    \item \textbf{Actuator gain loss:} the executed displacement is a reduced
+    multiple of the commanded action.
+    \item \textbf{One-step actuation delay:} the displacement at time $t$ uses
+    the previous command.
+    \item \textbf{High-command slip:} commands above a threshold lose effective
+    displacement.
+    \item \textbf{Contact compliance:} early commands compress the contact
+    before productive motion begins.
 \end{itemize}
-Each domain also contains nuisance lighting, texture, appearance, and sensor-noise variables that do not determine the repair.
+Each domain also carries nuisance texture, lighting, appearance, and sensor-noise
+variables. These variables are intentionally not repair-determining, so a
+nuisance-heavy nearest-neighbor baseline is expected to struggle.
 
-\paragraph{Methods.}
-We compare no adaptation, the best single robust repair from training domains, a coarse passive-statistic oracle, nuisance nearest neighbor, gain-only system identification, mechanism-first probing, and two oracles. The passive-statistic oracle is deliberately strong within a deliberately limited representation: for each coarse nominal-rollout outcome bin, it chooses the empirically best repair from training. This tests the aliasing setting rather than all possible passive adapters.
+\paragraph{Repairs.}
+The repair library contains no adaptation, gain compensation, delay-aware
+braking, slip-safe low-amplitude commands, and preload for compliant contact.
+The best-repair oracle chooses the highest-reward repair per domain. The
+mechanism oracle maps the true mechanism to its intended repair. The proposed
+mechanism-first adapter maps diagnostic residuals to the repair label.
+
+\paragraph{Diagnostic probes.}
+The probe set consists of low pulses, high pulses, and alternating pulses. Low
+pulses identify reduced gain and compliant dead zones. High pulses expose delay
+and slip. Alternating pulses test whether a residual is directionally symmetric.
+Probe features include first displacement, total displacement, second-step jump,
+high-to-low ratio, and alternating residuals. The full-scale suite also tests
+what happens when each probe group is removed or corrupted.
+
+\section{Experimental Design}
+
+The full-scale runner writes compact aggregate rows only. It does not store raw
+episode traces except for small constructive counterexample artifacts. This keeps
+RAM and disk use low while allowing many conditions to be evaluated.
+
+\paragraph{Main methods.}
+The main comparison includes:
+\begin{itemize}
+    \item no adaptation;
+    \item random repair;
+    \item the best single robust repair learned from training domains;
+    \item coarse, medium, and fine passive-statistic tables;
+    \item passive-vector nearest neighbor;
+    \item nuisance nearest neighbor over passive and appearance variables;
+    \item probe nearest neighbor;
+    \item gain-only system identification;
+    \item mechanism-first probing;
+    \item mechanism oracle;
+    \item best-repair oracle.
+\end{itemize}
+
+\paragraph{Suites.}
+The final evidence includes 11 aggregate suites: main sweep, by-mechanism
+breakdown, probe-noise taxonomy, probe-set ablation, mechanism mixture and
+imbalance, passive-summary richness, data-scale sensitivity, repair-library
+ablation, unknown/mixed mechanisms, threshold sensitivity, and formal
+counterexamples. The generated summary reports 1,151 compact rows, 756,750
+represented method-domain evaluations, 101 artifact metadata rows, and 20
+constructive passive-aliasing counterexample rows.
+
+\paragraph{Metrics.}
+We report thresholded success, mean final error, reward, regret to the
+best-repair oracle, repair accuracy, mechanism accuracy where applicable, and
+unknown-rejection rate for rejection methods. The thresholded success metric is
+useful but not sufficient: several passive methods reach high success while
+still having worse final error or repair accuracy.
+
+\section{Main Results}
 
 \begin{table}[t]
 \centering
-\caption{Aggregate simulator results over 1200 deployment domains. Lower final error is better. The thresholded success metric is loose; the main repair-quality signal against the passive oracle is final error.}
-\label{tab:results}
-\begin{tabular}{lccc}
-\toprule
-Method & Success & Mean final error & Mean reward \\
-\midrule
-mechanism-first & 1.000 & 0.0017 & -0.0219 \\
-mechanism oracle & 1.000 & 0.0017 & -0.0219 \\
-best-repair oracle & 1.000 & 0.0017 & -0.0219 \\
-passive-statistic oracle & 1.000 & 0.0076 & -0.0333 \\
-single robust repair & 0.922 & 0.0226 & -0.0443 \\
-gain-only sysID & 0.916 & 0.0550 & -0.0999 \\
-nuisance nearest neighbor & 0.773 & 0.0935 & -0.1284 \\
-no adaptation & 0.679 & 0.0919 & -0.1222 \\
-\bottomrule
-\end{tabular}
+\caption{Main full-scale aggregate results. Mechanism-first matches the
+mechanism and best-repair oracles in this closed-library simulator. Passive
+summaries improve as they become richer, but coarse passive statistics retain a
+measurable repair-regret gap.}
+\label{tab:main}
+\input{../results/full_scale/tables/main_aggregate.tex}
 \end{table}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.94\linewidth]{../results/success_rates.png}
-\caption{Thresholded success rates for all methods. The passive-statistic oracle reaches the loose success threshold, but Table~\ref{tab:results} shows worse final error than mechanism-first repair selection.}
-\label{fig:success}
+\includegraphics[width=0.96\linewidth]{figures/full_scale_main_methods.png}
+\caption{Main method comparison over the full-scale sweep. Success is saturated
+for several methods, so Table~\ref{tab:main} should be read together with final
+error, regret, and repair accuracy.}
+\label{fig:main-methods}
 \end{figure}
 
-\paragraph{Results.}
-Mechanism-first probing matches the mechanism oracle on this run. It improves mean final error by about $4.5\times$ compared with the passive-statistic oracle and by more than $50\times$ compared with nuisance nearest neighbor. The probe classifier is perfect in the clean saved run, with all 1200 test domains assigned to the correct mechanism. Mechanism-level results show where generic coordinates break: gain-only system identification fails under slip, no adaptation fails under delay, and nuisance nearest neighbor is especially brittle under delay and slip.
+Table~\ref{tab:main} and Figure~\ref{fig:main-methods} show the main result.
+Mechanism-first repair has mean final error 0.0018, zero measured regret to the
+best-repair oracle, and perfect mechanism and repair accuracy in the clean
+closed-library simulator. No adaptation has final error 0.0945. Nuisance nearest
+neighbor has final error 0.1014 and repair accuracy 0.294, confirming that
+appearance-heavy similarity is not a reliable repair coordinate. Gain-only
+system identification has final error 0.0546 because it detects gain loss but
+does not identify delay, slip, or compliance.
+
+The passive baselines are more nuanced. The coarse passive statistic reaches
+success 1.000 but has final error 0.0073 and repair accuracy 0.506. The fine
+passive statistic improves to final error 0.0026 and repair accuracy 0.900. A
+medium passive statistic and a passive-vector nearest-neighbor baseline nearly
+match the mechanism-first method in this simulator. This is an important
+boundary condition: the mechanism-first rule is not claiming that passive
+features are always insufficient. The claim is that passive features are
+insufficient when they alias repair-critical mechanisms. Rich enough passive
+vectors can sometimes reconstruct the same repair partition, especially in a
+simple low-dimensional simulator.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.96\linewidth]{figures/full_scale_by_mechanism.png}
+\caption{Mechanism-specific mean final error for selected methods. The clean
+mechanism-first rule and probe-nearest-neighbor baseline separate all four
+in-library mechanisms.}
+\label{fig:by-mechanism}
+\end{figure}
+
+Figure~\ref{fig:by-mechanism} breaks the results down by hidden mechanism. The
+largest errors for generic baselines occur when the mechanism changes the
+control law rather than merely the gain. Delay punishes controllers that react
+to current position without accounting for command latency. Slip punishes high
+amplitude actions even when the nominal displacement looks plausible.
+Compliance punishes methods that do not preload the contact. These are exactly
+the cases where repair labels are more directly useful than passive domain
+similarity.
+
+\section{Probe Noise and Probe Ablation}
 
 \begin{table}[t]
 \centering
-\caption{Probe-noise stress over five repeats per noise level. The clean
-hand-designed probe classifier is perfect, but mechanism-first repair degrades
-as diagnostic residuals become noisy.}
-\label{tab:probe-noise}
-\input{../results/probe_noise_table.tex}
+\caption{Probe-noise taxonomy. The clean hand-designed probe is reliable, but
+mechanism-first repair degrades when diagnostic residuals are corrupted.}
+\label{tab:noise}
+\input{../results/full_scale/tables/probe_noise_taxonomy.tex}
 \end{table}
 
-Table~\ref{tab:probe-noise} adds Gaussian noise to the diagnostic residual
-features before mechanism classification. At $\sigma=0.02$, mechanism accuracy
-is still 0.982 and mean final error is 0.0038. At $\sigma=0.04$, accuracy drops
-to 0.830 and mean final error rises to 0.0294, worse than the clean passive
-statistic oracle's 0.0076. At $\sigma=0.12$, mechanism accuracy is 0.503 and
-mean final error is 0.1098. The claim is therefore conditional on reliable
-diagnostic probes; mechanism-first coordinates do not solve probe design or
-noisy mechanism identification.
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.94\linewidth]{figures/full_scale_probe_noise.png}
+\caption{Mechanism accuracy under five corruption families. Gaussian noise and
+dropout degrade gradually; large signed bias is more damaging; quantization at
+the tested levels is benign because the mechanism thresholds remain separated.}
+\label{fig:noise}
+\end{figure}
 
-\paragraph{Counterexample artifact.}
-The repository includes a two-domain aliasing construction in \texttt{results/aliasing\_counterexample.csv}. Domain A has actuator gain loss and is repaired by gain compensation. Domain B has high-command contact slip and is repaired by slip-safe control. Both expose the same passive statistic $s=0.50$. Any adapter observing only $s$ must choose the same repair for both, so it fails on at least one.
+The strongest limitation of mechanism-first adaptation is probe reliability.
+With Gaussian feature noise at level 0.02, mechanism accuracy is 0.979 and final
+error is 0.0031. At level 0.04, accuracy falls to 0.828 and final error rises to
+0.0320. At level 0.12, accuracy is 0.508 and final error is 0.1106. Dropout
+shows a similar but smoother degradation: at dropout probability 0.20,
+mechanism accuracy is 0.820 and final error is 0.0449. Sign flips at probability
+0.20 yield accuracy 0.819 and final error 0.0432. Bias is asymmetric: small
+biases are harmless, but large signed biases collapse the rule because they move
+multiple pulse features across classifier thresholds. Quantization is benign at
+the tested levels because the signatures remain well separated.
+
+These results narrow the claim. Mechanism-first repair is only as good as its
+diagnostic interventions. If probes are noisy, unsafe, too expensive, or
+uninformative, a passive or robust method may be preferable. The mechanism-first
+view therefore turns probe design into a first-class experimental object.
+
+\begin{table}[t]
+\centering
+\caption{Probe-set ablation. In this simulator, low-only and high-only probe
+nearest-neighbor classifiers are already sufficient, while alternating-only
+features miss some repair distinctions.}
+\label{tab:probe-ablation}
+\input{../results/full_scale/tables/probe_ablation.tex}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/full_scale_probe_ablation.png}
+\caption{Probe-set ablation. Alternating-only probes are weaker than low or
+high pulses; the full probe set remains robust and interpretable.}
+\label{fig:probe-ablation}
+\end{figure}
+
+The probe ablation in Table~\ref{tab:probe-ablation} shows that not every probe
+group is equally important. Low-only and high-only nearest-neighbor classifiers
+are sufficient in the current simulator because each mechanism has a strong
+scalar signature. Alternating-only features have mechanism accuracy 0.885 and
+final error 0.0629. This is a useful negative result: the method should not be
+described as ``any active probing works.'' The probes must be chosen to make the
+repair-relevant mechanisms separable.
+
+\section{Passive Summary Richness and Data Scale}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.96\linewidth]{figures/full_scale_passive_richness.png}
+\caption{Passive-summary richness. Coarse passive statistics are insufficient,
+but richer passive vectors can recover the same repair partition in this simple
+simulator.}
+\label{fig:passive}
+\end{figure}
+
+The passive-summary suite asks whether the apparent advantage of
+mechanism-first repair is only a weak-baseline artifact. The answer is partly
+yes and partly no. Coarse passive statistics remain clearly worse, with final
+error 0.0073 and repair accuracy about 0.50. Fine and trace passive tables
+reduce the error to roughly 0.0025. Passive-vector nearest neighbor matches the
+oracle in this simulator because the passive vector contains enough dynamics
+information to identify the repair label.
+
+This result is deliberately included because it prevents overclaiming. The
+repair-aliasing proposition applies to insufficient statistics. It does not say
+that all passive summaries are insufficient. In low-dimensional systems, a rich
+passive trajectory can become a diagnostic signature. In more complex contact
+settings, however, passive behavior may be unsafe, ambiguous, or confounded by
+task policy. The mechanism-first argument is strongest when targeted
+interventions reveal distinctions that passive deployment summaries hide.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.94\linewidth]{figures/full_scale_data_scale.png}
+\caption{Data-scale sensitivity. Mechanism-first and probe-nearest-neighbor
+methods are stable across training-domain counts because the probe coordinate
+directly separates the repair classes.}
+\label{fig:scale}
+\end{figure}
+
+Figure~\ref{fig:scale} reports the data-scale sweep. Passive-statistic
+performance improves with richer training coverage but remains slightly worse
+than the probe-coordinate methods at all tested scales. Mechanism-first itself
+is largely insensitive to the number of training domains because the
+hand-designed probe rule does not need to learn a high-dimensional domain
+embedding. Probe nearest neighbor also remains stable because the probe feature
+space is low dimensional and repair-aligned.
+
+\section{Mechanism Mixtures, Repair Libraries, and Negative Controls}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.96\linewidth]{figures/full_scale_mechanism_mix.png}
+\caption{Mechanism mixture and imbalance. The mechanism-first and
+probe-nearest-neighbor methods remain stable across uniform and skewed mechanism
+mixtures.}
+\label{fig:mix}
+\end{figure}
+
+Mechanism imbalance can make a weak method look strong. For example, if gain
+loss dominates the target distribution, a gain-focused adapter may perform well
+without solving delay, slip, or compliance. Figure~\ref{fig:mix} therefore
+tests uniform, gain-heavy, delay-heavy, slip-heavy, rare-compliance, and
+two-mechanism distributions. Mechanism-first and probe nearest neighbor remain
+near the oracle. Passive fine summaries are also strong in this simulator but
+remain sensitive to coverage and binning. The nuisance baseline remains poor
+because nuisance variables are not causally tied to repair.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/full_scale_repair_ablation.png}
+\caption{Repair-library ablation. Mechanism labels are not sufficient when the
+matching repair is missing; the method then falls back to the best available
+repair and incurs regret.}
+\label{fig:repair-ablation}
+\end{figure}
+
+Repair-library ablations are the most important boundary control. When
+delay-brake is removed, mechanism-first limited repair has mean regret 0.0265
+and success 0.739, while the best-repair oracle over the reduced library still
+finds a partial workaround with final error 0.0066 and success 0.994. When
+gain-compensation is removed, mechanism-first regret is 0.0117. Removing preload
+is less damaging because other repairs partly handle compliance in this toy
+system. Adding a wrong high-gain repair has little effect because the repair
+selector does not choose it. These results show that mechanism classification
+does not by itself solve adaptation; the repair library must contain useful
+actions.
+
+\begin{table}[t]
+\centering
+\caption{Out-of-library and mixed-mechanism controls. The gain+delay mixed
+mechanism is a clear failure case for the closed-library mechanism-first rule.}
+\label{tab:unknown}
+\input{../results/full_scale/tables/unknown_mixed_controls.tex}
+\end{table}
+
+Table~\ref{tab:unknown} reports out-of-library and mixed-mechanism controls.
+Friction is effectively handled by the same repair chosen for gain-like
+behavior, so mechanism-first succeeds even though the true mechanism is
+out-of-library. This is not a failure; it shows that repair-equivalence can be
+coarser than physical taxonomy. Gain+delay is a true negative control:
+mechanism-first maps the residual to an in-library label and fails with success
+0.0, while the best-repair oracle succeeds. Slip+compliance is partially handled
+by in-library repairs but exposes rejection difficulty: the rejection variant
+rejects 0.645 of cases and has lower success than plain mechanism-first.
+
+\section{Threshold Sensitivity and Formal Counterexamples}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.90\linewidth]{figures/full_scale_threshold_sensitivity.png}
+\caption{Threshold sensitivity. Mechanism-first remains saturated under the
+tested strict success thresholds, while nominal control is sensitive to the
+threshold.}
+\label{fig:threshold}
+\end{figure}
+
+The threshold sweep is included because thresholded success can hide important
+differences. At the strict threshold 0.03, no adaptation has success 0.578 while
+mechanism-first remains at 1.000. At thresholds 0.05 and 0.07, no adaptation
+rises to 0.664 and 0.694, but the final-error gap remains large. This is why the
+paper emphasizes final error and regret in addition to success.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/full_scale_counterexamples.png}
+\caption{Constructive passive-aliasing counterexamples. Each pair shares the
+same passive statistic but has different margin-separated best repairs.}
+\label{fig:counterexamples}
+\end{figure}
+
+The formal counterexample artifact contains 20 constructive passive-aliasing
+pairs. Each pair has shared passive statistic $s=0.50$ but different best
+repairs and positive margins. These rows are not claimed to be sampled hardware
+episodes. They are constructive witnesses for Proposition 1: when a statistic
+collapses two repair-critical domains, deterministic statistic-only adaptation
+must fail on at least one and randomized adaptation has a lower bound under a
+uniform pair distribution.
+
+\section{Related Work}
+
+\paragraph{Domain randomization and robust policies.}
+Domain randomization trains policies over visual and dynamics variation so that
+the learned behavior generalizes to real deployment \citep{tobin2017domain,
+peng2018dynamics,muratore2022robot}. The present paper does not dispute that
+strategy. Instead, it identifies a case where randomized coverage of nuisance
+factors is not the same as identifying the repair mechanism. Robust policies can
+reduce the need for explicit repair selection, but the single-robust baseline
+shows that one repair can be dominated when the target mechanisms require
+incompatible interventions.
+
+\paragraph{System identification and sim calibration.}
+Online system identification and sim calibration estimate physical parameters or
+adapt randomization distributions \citep{tan2018agile,yu2017uposi,
+chebotar2019closing}. Mechanism-first adaptation is coarser. It only estimates
+the repair-equivalence class. That coarseness can be an advantage when the
+complete parameter vector is unnecessary, and a disadvantage when the mechanism
+is mixed or out of library.
+
+\paragraph{Domain adaptation and contact-rich transfer.}
+Domain adaptation methods align source and target observations, including image
+translation and force-control pipelines for assembly \citep{shi2023cyclegan,
+yuan2022assembly}. Tactile and contact-rich sim-to-real work shows that
+interaction signals can be central for transfer \citep{ding2021tactile,
+lin2023bitouch}. This paper is closest in spirit to those interaction-focused
+approaches, but the claimed contribution is not simply that contact matters. It
+is that contact residuals should be organized around the repair they imply.
+
+\section{Real-Robot Audit Protocol}
+
+The next empirical step is a real-robot audit, not another simulator-only
+leaderboard. A hardware audit should include:
+\begin{itemize}
+    \item a closed repair library with pre-registered safe command limits;
+    \item diagnostic probes whose energy, displacement, and contact forces are
+    bounded independently of the classifier;
+    \item blind mechanism labels or post-hoc failure annotations;
+    \item passive-summary baselines that are allowed rich trajectories, not just
+    coarse success/failure bins;
+    \item rejection criteria for out-of-library mechanisms;
+    \item per-mechanism failure narratives, not only aggregate success;
+    \item an ablation in which a required repair is removed from the library.
+\end{itemize}
+The mechanism-first claim would be weakened if rich passive summaries recover
+the same repair partition with equal safety and lower cost, if diagnostic probes
+are too noisy or unsafe, or if mixed mechanisms dominate real deployments.
 
 \section{Limitations}
 
-The strongest limitation is evidence scale. The simulator is intentionally small and diagnostic; it is not a hardware benchmark. The mechanism library is closed and hand-designed. The probes are also hand-designed, which means the paper does not solve probe synthesis. The v2 probe-noise stress makes this limitation concrete: once diagnostic residuals are noisy enough, the mechanism classifier misidentifies repair classes and the advantage over passive summaries can disappear. The passive-statistic baseline is representation-limited by construction; the formal proposition justifies studying that setting, but the experiment should not be read as a defeat of all passive or learned representations. Finally, real sim-to-real failures can be coupled, nonstationary, and out of library.
+The strongest limitation is that all evidence is simulation evidence. The
+simulator is intentionally small and diagnostic. It does not include perception
+errors, deformable contact, unmodeled actuator dynamics, force limits, changing
+friction, or human safety constraints. The mechanism library is closed and
+hand-designed. The probe classifier is also hand-designed in the main method,
+although the probe-nearest-neighbor baseline shows that the same coordinate can
+be learned in this feature space.
+
+The passive baseline story is nuanced. Coarse passive statistics are
+insufficient, but passive-vector nearest neighbor matches the oracle in this
+toy domain. This means the paper should not be read as a general defeat of
+passive representations. It should be read as a warning: a passive statistic is
+only safe as an adaptation coordinate if it is repair-sufficient.
+
+The negative controls also matter. Gain+delay mixed mechanisms break the
+closed-library mechanism-first rule. Removing delay-brake from the repair
+library produces substantial regret. Probe noise at sufficient magnitude erases
+the advantage. These are not side notes; they are the conditions under which the
+method should not be deployed without additional diagnosis or fallback logic.
 
 \section{Conclusion}
 
-The paper changes the central adaptation variable from domain statistics to repair mechanisms. This change exposes a simple but important boundary: statistics that are predictive of domain identity or nominal rollout behavior can still be insufficient for repair selection. Mechanism-first probes offer a constructive alternative in a stylized contact-control setting. The next step is to test whether the same repair-equivalence view helps on hardware, especially in contact-rich manipulation where delay, slip, compliance, and sensing artifacts are common and costly to confuse.
+This paper changes the target of adaptation from domain statistics to repair
+mechanisms. The change exposes a simple boundary: statistics that are useful for
+domain recognition or nominal rollout prediction can still be insufficient for
+repair selection. In a runnable contact-control simulator, mechanism-first
+probing matches the best-repair oracle in the clean closed-library setting and
+outperforms no adaptation, nuisance similarity, gain-only system identification,
+and coarse passive statistics. The broader suite also shows where the claim
+ends: rich passive vectors can match the repair coordinate, noisy probes degrade
+the method, missing repairs create regret, and mixed mechanisms can fail. The
+useful lesson is therefore not that one algorithm wins universally. It is that
+sim-to-real adaptation should ask whether its chosen coordinate is sufficient
+for the repair decision it must make.
 
 \bibliography{references}
 \bibliographystyle{iclr2026_conference}
 
 \appendix
-\section{Artifact Notes}
+\renewcommand{\thesection}{\arabic{section}}
+\setcounter{section}{0}
 
-The repository includes the literature matrix, hostile prior-work set, simulator, cached results, and audit files. To rerun the experiment, execute \texttt{python experiments\textbackslash mechanism\_first\_sim.py} from the repository root. The expected aggregate results are written to \texttt{results\textbackslash summary.csv}. The final audit identifies unsupported claims and assigns the paper-readiness judgment.
+\section{Algorithmic Details}
+
+The mechanism-first adapter has three phases. First, execute a bounded probe
+set. In the simulator this consists of low pulses, high pulses, and alternating
+pulses. Second, compute residual features: first displacement, total
+displacement, jump after a delayed step, high-to-low response ratio, and
+alternating residuals. Third, classify the mechanism and select the corresponding
+repair. The hand-designed classifier uses threshold tests that correspond to
+physical signatures:
+\begin{itemize}
+    \item a near-zero first high response with a large second jump indicates
+    delay;
+    \item low first response followed by high response indicates compliance;
+    \item low response with high-command collapse indicates slip;
+    \item reduced but monotone response indicates gain loss.
+\end{itemize}
+
+The probe-nearest-neighbor baseline uses the same probe feature vector but
+learns labels from training domains. Its strong performance shows that the
+coordinate, not only the hand-coded rule, carries repair information.
+
+\section{Simulator Equations}
+
+The nominal controller computes a clipped proportional command
+\[
+u_t = \mathrm{clip}(0.72(1-x_t), -0.46, 0.46).
+\]
+Gain compensation divides the nominal command by the expected low gain.
+Delay-brake predicts the next state using the previous command. Slip-safe repair
+limits command amplitude. Preload sends a large first command to compress the
+contact and then returns to feedback control.
+
+The reward is negative final error minus action cost and overshoot cost:
+\[
+R(d,r) = -|1-x_T| - 0.015\sum_t |u_t| - 0.35\max(0,x_T-1).
+\]
+Success requires final error below the selected threshold and overshoot below
+0.10. The default threshold is 0.07.
+
+\section{Baseline Details}
+
+\paragraph{Passive tables.}
+The coarse passive table observes only whether nominal rollout succeeds or
+fails. Medium and fine tables add quantized nominal final position, nominal
+error, low-pulse sum, and early nominal positions. The trace table adds more
+quantized temporal structure. Each table chooses the empirically best repair in
+its bin using training domains.
+
+\paragraph{Nearest-neighbor baselines.}
+Passive-vector nearest neighbor uses nominal rollout and low-pulse summaries.
+Nuisance nearest neighbor adds lighting, texture, and appearance variables.
+Probe nearest neighbor uses diagnostic residuals. The contrast between nuisance
+nearest neighbor and probe nearest neighbor is the cleanest empirical
+demonstration of the coordinate issue: both are nearest-neighbor methods, but
+one uses repair-irrelevant nuisance similarity and the other uses
+repair-relevant intervention responses.
+
+\paragraph{Oracles.}
+The mechanism oracle maps the hidden mechanism label to the intended repair.
+The best-repair oracle evaluates the finite repair library and chooses the best
+reward for each domain. In the clean in-library simulator these oracles match,
+but they can differ in repair-library ablations and mixed mechanisms.
+
+\section{Additional Interpretation of Main Results}
+
+The main result has two readings. The optimistic reading is that a small
+mechanism-first probe can match the oracle in a closed-library setting. The
+cautious reading is that the simulator is simple enough that passive-vector
+nearest neighbor also recovers the repair partition. Both readings are true. The
+paper's central point survives because the coarse passive statistic remains
+aliased, nuisance similarity remains poor, gain-only identification remains
+incomplete, and the formal proposition identifies why insufficient statistics
+cannot be fixed by a better optimizer.
+
+The medium passive table is surprisingly strong. This happens because the
+one-dimensional task exposes enough mechanism information through nominal
+rollout summaries. In a higher-dimensional contact task, nominal trajectories
+could be unsafe or ambiguous; in that case active diagnostic probes may be
+preferable. The right conclusion is to test repair sufficiency, not to assume a
+particular coordinate wins.
+
+\section{Probe Noise Details}
+
+The noise taxonomy uses five corruptions. Gaussian noise perturbs all probe
+features independently. Bias applies a shared signed offset to pulse features.
+Dropout zeros individual features. Quantization rounds features to a fixed grid.
+Sign-flip corruption negates randomly selected features. The taxonomy is useful
+because it separates benign measurement loss from adversarial residual changes.
+Quantization is benign in the tested range because class thresholds remain
+separated. Bias is severe because it moves multiple diagnostic features in a
+coordinated direction.
+
+\section{Repair-Library Failure Narratives}
+
+When gain compensation is removed, gain-loss domains are forced to use weaker
+repairs. Mechanism labels remain correct, but the repair set lacks the intended
+action. When delay-brake is removed, the failure is larger because delayed
+dynamics require a qualitatively different controller. When slip-safe repair is
+removed, other conservative actions partially cover the slip mechanism in this
+toy domain. When preload is removed, compliance is often still manageable
+because the controller can eventually compress the contact, though with higher
+regret. Adding a wrong high-gain repair is harmless because the repair selector
+does not choose it; a learned selector without repair-level validation could
+behave differently.
+
+\section{Out-of-Library Controls}
+
+The friction control demonstrates that physical mechanism labels need not match
+repair-equivalence labels. Friction is not one of the four in-library mechanisms,
+but its best repair in the tested range is equivalent to an in-library response.
+The gain+delay control demonstrates the opposite. It combines two mechanisms
+whose repairs interact, and the closed-library classifier maps it to a single
+label. The result is failure. Slip+compliance is intermediate: the in-library
+repairs are often adequate, but the rejection rule is not reliably beneficial.
+These controls motivate future work on compositional mechanism labels and
+calibrated unknown detection.
+
+\section{Reproducibility Checklist}
+
+The final evidence can be regenerated from the repository with:
+\[
+\texttt{python experiments\textbackslash full\_scale\_mechanism\_first.py}
+\]
+for the monolithic runner, or with the suite-split commands recorded in the
+results directory. The final aggregation is generated by:
+\[
+\texttt{python scripts\textbackslash summarize\_full\_scale\_results.py}.
+\]
+The important output files are:
+\begin{itemize}
+    \item \texttt{results/full\_scale/main\_sweep.csv}
+    \item \texttt{results/full\_scale/probe\_noise\_taxonomy.csv}
+    \item \texttt{results/full\_scale/probe\_set\_ablation.csv}
+    \item \texttt{results/full\_scale/mechanism\_mix\_*.csv}
+    \item \texttt{results/full\_scale/passive\_summary.csv}
+    \item \texttt{results/full\_scale/scale\_sweep\_*.csv}
+    \item \texttt{results/full\_scale/repair\_ablation\_*.csv}
+    \item \texttt{results/full\_scale/unknown\_mixed\_*.csv}
+    \item \texttt{results/full\_scale/threshold\_sensitivity\_*.csv}
+    \item \texttt{results/full\_scale/formal\_counterexamples.csv}
+    \item \texttt{results/full\_scale/full\_scale\_summary.json}
+\end{itemize}
+
+\section{Falsification Criteria}
+
+The mechanism-first claim should be weakened or rejected under any of the
+following outcomes:
+\begin{itemize}
+    \item a passive statistic available at equal or lower deployment cost is
+    repair-sufficient across the target domain;
+    \item diagnostic probes cannot be executed safely;
+    \item probe residuals are too noisy to classify repair-equivalence classes;
+    \item target failures are mostly mixed or out-of-library;
+    \item the repair library lacks the actions implied by the detected
+    mechanisms;
+    \item mechanism labels do not improve regret relative to a robust repair.
+\end{itemize}
+These criteria are part of the contribution because they prevent the simulation
+result from becoming a vague argument for more diagnosis in all settings.
+
+\section{Full-Scale Suite Ledger}
+
+This appendix records what each full-scale suite is meant to test and what kind
+of claim it can support. The ledger matters because a large simulator run can
+look impressive while answering only one narrow question. The final evidence is
+therefore organized around distinct reviewer attacks.
+
+\paragraph{Main sweep.}
+The main sweep asks whether the mechanism-first coordinate is competitive with
+reasonable alternatives in the clean in-library setting. It is not enough for
+mechanism-first to beat no adaptation. The relevant comparison includes a strong
+single robust repair, gain-only system identification, passive tables with
+increasing resolution, passive-vector nearest neighbor, nuisance nearest
+neighbor, probe nearest neighbor, and oracles. The main sweep supports the
+closed-library positive claim: diagnostic residuals are sufficient to recover
+the intended repair labels in this simulator. It does not support any claim
+about out-of-library robustness, real hardware, or learned probe synthesis.
+
+\paragraph{By-mechanism breakdown.}
+The by-mechanism rows prevent a method from hiding a failure on one mechanism
+behind success on another. This is especially important when the mechanism
+mixture is imbalanced. A gain-heavy test distribution can make gain-focused
+system identification look better than it is. The by-mechanism figure shows
+whether each method actually solves gain, delay, slip, and compliance.
+
+\paragraph{Probe-noise taxonomy.}
+The noise taxonomy asks whether the diagnostic coordinate is stable under
+measurement corruption. Gaussian noise, bias, dropout, quantization, and sign
+flips are qualitatively different. A method that survives quantization may fail
+under bias, because quantization preserves ordering while bias can move several
+features across thresholds together. The taxonomy supports a conditional claim:
+mechanism-first repair is useful when probes remain discriminative.
+
+\paragraph{Probe-set ablation.}
+The probe-set ablation asks whether the full probe set is necessary and whether
+the result is brittle to a single hand-selected intervention. In this simulator,
+low-only and high-only feature sets already separate the mechanisms, while
+alternating-only probes are weaker. This result should not be generalized as a
+claim that low or high pulses are sufficient in real contact tasks. It says that
+the simulated mechanisms are separable by several low-dimensional intervention
+views, and that alternating residuals alone are less informative.
+
+\paragraph{Mechanism mixture and imbalance.}
+The mixture suite asks whether methods exploit the mechanism prior. A method
+that chooses the most common repair can perform well under a skewed prior and
+fail under a uniform prior. The suite includes uniform, gain-heavy, delay-heavy,
+slip-heavy, rare-compliance, and two-mechanism mixes. The mechanism-first result
+is stable because it conditions on probe responses rather than on the prior.
+
+\paragraph{Passive-summary richness.}
+The passive-summary suite is intentionally adversarial to the paper's thesis.
+It gives passive adapters more information and asks whether the repair partition
+can be recovered without active probes. In this simulator, passive-vector nearest
+neighbor matches the oracle. That finding is retained because it clarifies the
+boundary: the problem is not passivity itself, but repair-insufficient
+statistics. If a passive vector is repair-sufficient and cheaper than probing,
+it should be used.
+
+\paragraph{Data-scale sensitivity.}
+The data-scale suite asks whether passive and nearest-neighbor methods merely
+need more training domains. Mechanism-first has little dependence on training
+count because it is a hand-coded rule in a repair-aligned feature space.
+Passive-statistic tables improve with coverage but remain sensitive to binning.
+The scale suite supports a data-efficiency claim only inside the toy simulator;
+it does not prove that hand-designed probes will remain data-efficient on
+hardware.
+
+\paragraph{Repair-library ablation.}
+The repair ablation asks whether mechanism labels remain useful when the repair
+menu is incomplete. The answer is mixed. Classification remains meaningful, but
+the controller cannot apply a missing repair. This suite is the strongest guard
+against an overbroad diagnosis claim. Diagnosis is useful only if the system can
+act on the diagnosis.
+
+\paragraph{Unknown and mixed mechanisms.}
+The unknown suite distinguishes repair-equivalence from physical taxonomy. A
+friction-like target can be out-of-library physically but in-library by repair.
+A gain+delay target can be physically understandable but out-of-library by
+repair because the library lacks a compositional repair. This suite motivates
+future work on hierarchical labels, compositional mechanisms, and calibrated
+rejection.
+
+\paragraph{Threshold sensitivity.}
+The threshold suite asks whether the conclusion depends on the default success
+threshold. It is deliberately secondary to final error and regret, because
+thresholded success can saturate. The main use of this suite is to show that the
+nominal controller's reported success changes substantially as the threshold is
+relaxed, while mechanism-first remains near saturation at the tested strict
+thresholds.
+
+\paragraph{Formal counterexamples.}
+The counterexample table is not an empirical benchmark. It is a constructive
+artifact for Proposition 1. The rows instantiate the logic of two domains with a
+shared passive statistic and different best repairs. They make the lower-bound
+argument inspectable and reproducible.
+
+\section{Mechanism Signatures and Separability}
+
+Mechanism-first adaptation depends on separability assumptions. In this
+simulator, each mechanism changes a different part of the probe response. Gain
+loss scales small and large commands. Delay suppresses the first response to a
+high command and produces a second-step jump. Slip preserves small commands but
+reduces the effect of high commands. Compliance suppresses early motion until
+compression is released. These signatures are intentionally simple, but they
+capture a common contact-control reality: different physical failures can have
+similar task-level outcomes while producing different residuals under targeted
+interventions.
+
+The separability assumption has two levels. The first is physical: the true
+mechanisms must produce distinguishable residuals under safe probes. The second
+is statistical: the measurement system must observe those residuals with enough
+signal-to-noise ratio. The probe-noise taxonomy attacks the second level. The
+unknown and mixed controls attack the first. A real robot can violate either
+assumption. For example, a compliant object with high damping might look like
+actuator gain loss under low pulses, and a delayed controller with noisy state
+estimation might look like slip under high pulses.
+
+Probe separability also depends on the repair library. If two physical
+mechanisms require the same repair, separating them is unnecessary. If one
+physical mechanism can require different repairs depending on severity, the
+mechanism label is too coarse. The right label is not the name of a physical
+phenomenon. It is the repair-equivalence class induced by the controller and
+loss.
+
+\section{Passive Sufficiency Versus Active Diagnosis}
+
+The paper's argument can be misunderstood as saying that active probes are
+always superior to passive summaries. The experiments explicitly reject that
+stronger claim. Passive-vector nearest neighbor matches the oracle in the main
+simulator because the passive vector contains enough information to reconstruct
+the repair partition. This is not a contradiction. It is exactly what the formal
+view predicts: if a statistic is repair-sufficient, a statistic-only adapter can
+succeed.
+
+The practical question is therefore not whether a summary is passive or active.
+The question is whether it is repair-sufficient at acceptable cost. Passive
+summaries can be attractive because they do not require extra interventions.
+They can also be dangerous because they may be collected during task execution,
+where a wrong action can damage the object or robot. Active probes can be safer
+if they are small, bounded, and designed to reveal a mechanism before committing
+to a high-energy policy. Active probes can also be worse if they add time,
+disturb the scene, or require contact that the task would otherwise avoid.
+
+The repair-sufficiency test suggested by this paper is simple. Choose a
+candidate statistic $\sigma$. Search for target domains that share $\sigma$ but
+have different best repairs. If such pairs exist with nontrivial margins, the
+statistic is unsafe as the sole adaptation coordinate. If no such pairs are
+found under a broad audit, the statistic may be sufficient for the repair
+library and task distribution. This test can be applied to passive trajectories,
+learned embeddings, tactile summaries, or intervention residuals.
+
+\section{Statistical Reporting Choices}
+
+The full-scale artifact stores compact aggregate rows rather than raw traces.
+This choice is deliberate. The simulator is deterministic given a sampled domain
+and repair, and the main questions are aggregate repair quality, mechanism
+accuracy, and regret. Storing every per-step trace for every condition would
+increase disk usage without improving the paper's claims. The aggregate rows
+retain seed, condition, method, training count, test count, success rate, mean
+final error, p95 final error, mean reward, mean regret, repair accuracy,
+mechanism accuracy, and unknown-rejection rate where applicable.
+
+The reported standard errors in the JSON summary are across aggregate seed rows,
+not across individual time steps. This is the appropriate level for the
+experiment because domain samples, not time steps, are the independent units.
+The suite-split execution also means some boundary controls have fewer seeds
+than the main sweep. Those controls are presented as stress tests and failure
+narratives, not as high-precision leaderboard estimates.
+
+The paper emphasizes final error and regret because thresholded success can
+saturate. A method with success 1.000 can still have meaningfully worse final
+error or repair accuracy. This occurs for coarse passive statistics: the task is
+often solved under the loose threshold, but the selected repair is not always
+the best repair. For robotics, this distinction matters because small residual
+errors can accumulate, cause contact wear, or reduce downstream success even
+when a single-step benchmark declares success.
+
+\section{Probe Safety and Deployment Cost}
+
+Diagnostic probes are not free. A useful hardware implementation must bound
+probe amplitude, velocity, duration, contact force, and workspace displacement.
+The probe should be safer than executing the unadapted task policy. If a probe
+can itself damage the scene, the method has merely moved risk earlier in the
+pipeline.
+
+A practical probe-design workflow is:
+\begin{enumerate}
+    \item enumerate plausible repair-critical mechanisms for the task;
+    \item define a repair library and loss function before designing probes;
+    \item choose low-energy interventions that are expected to separate the
+    repair classes;
+    \item simulate and, where possible, bench-test each probe under worst-case
+    contact assumptions;
+    \item train or specify a classifier with an explicit unknown region;
+    \item evaluate repair regret, not only mechanism-label accuracy;
+    \item remove each repair from the library and verify that the system fails
+    gracefully;
+    \item audit whether a passive statistic can achieve the same repair
+    partition with lower cost.
+\end{enumerate}
+This workflow treats mechanism-first adaptation as an engineering hypothesis,
+not as a default recipe.
+
+\section{Compositional Mechanisms}
+
+The gain+delay negative control is the clearest open problem. The target has two
+in-library physical mechanisms, but the repair library is not compositional.
+Selecting gain compensation alone does not solve delay, and selecting delay
+brake alone does not fully solve gain loss. The best-repair oracle over the
+available library can find the least bad single repair, but the mechanism-first
+classifier is not designed to output a set of mechanisms or a composed
+controller.
+
+A compositional extension would replace the single label $\hat{m}$ with a
+structured diagnosis such as $\{\mathrm{gain},\mathrm{delay}\}$. The repair map
+$\rho$ would then need to compose interventions, for example combining gain
+compensation with delay-aware prediction. This is not always safe: repairs can
+interact nonlinearly, and composing two stable repairs can produce an unstable
+controller. A future compositional version should therefore treat repair
+composition as a controlled synthesis problem, not as a simple union of labels.
+
+\section{Unknown Detection}
+
+Unknown detection is harder than classification. The rejection variant in the
+experiments uses distance in probe-feature space as a crude unknown score. That
+score is insufficient. Friction is out-of-library physically but near an
+in-library repair-equivalence class, so rejection is unnecessary. Gain+delay is
+near in-library components but out-of-library as a repair composition, so
+distance-based rejection can miss it. Slip+compliance shows the opposite
+problem: rejection can trigger often without improving task quality.
+
+This suggests that useful rejection should be based on predicted repair regret
+or residual uncertainty after a candidate repair, not only on feature-space
+distance. A robot can execute a small verification action after selecting a
+repair and check whether the residual moves in the expected direction. If not,
+the system should reduce authority, request a safer mode, or fall back to a
+robust controller. The current paper does not implement that loop; it only
+exposes why it is needed.
+
+\section{Reviewer-Facing Claim Boundaries}
+
+Several stronger claims are tempting but unsupported. The paper does not show
+that mechanism-first adaptation outperforms modern learned latent-context
+policies. It does not show that hand-designed probes scale to high-dimensional
+manipulation. It does not show that diagnostic interventions are safe on
+hardware. It does not show that passive summaries are generally weak. It does
+not show that physical mechanism labels are always identifiable.
+
+The supported claims are narrower:
+\begin{itemize}
+    \item repair-equivalence is a useful formal coordinate for some sim-to-real
+    failures;
+    \item statistic-only adapters fail when their statistic aliases
+    margin-separated repairs;
+    \item in the provided simulator, diagnostic residuals recover the repair
+    class under clean in-library conditions;
+    \item the advantage degrades under noisy probes, missing repairs, and mixed
+    mechanisms;
+    \item richer passive summaries can match the repair coordinate when they are
+    repair-sufficient.
+\end{itemize}
+These boundaries make the paper stronger. They turn the contribution from a
+broad slogan into a testable statement about adaptation coordinates.
+
+\section{How To Read the Results as a Design Tool}
+
+The results can be used as a design checklist for a new robot task. First, list
+the repairs the robot can actually execute. Second, ask which target-domain
+differences change the best repair. Third, test whether the available passive
+statistics separate those differences. Fourth, design the smallest safe probes
+that separate any remaining repair-aliased pairs. Fifth, add negative controls:
+remove repairs, corrupt probes, skew mechanism priors, and introduce mixed
+mechanisms. If the mechanism-first method only wins in the clean setting and
+fails every negative control, the design is not ready for deployment.
+
+This design reading is more important than the specific one-dimensional
+simulator. The simulator is a microscope for the coordinate issue. A real robot
+will need richer models, better probes, safety envelopes, and learned
+uncertainty. The coordinate question remains the same: does the information used
+for adaptation distinguish the repairs the robot must choose between?
+
+\section{Method-by-Method Analysis}
+
+\paragraph{Nominal no adaptation.}
+The nominal controller measures how much of the task is solved without target
+information. Its success rate is not zero because many sampled domains are mild
+enough for feedback to reach the target under the default threshold. This is why
+the paper reports final error and regret in addition to success. The nominal
+controller answers the question: is repair selection unnecessary? In the main
+sweep, the answer is no. Its final error is 0.0945 and its regret is 0.1030.
+
+\paragraph{Random repair.}
+Random repair estimates how often the repair library contains harmless
+interventions. If random repair were close to mechanism-first, the library would
+not require diagnosis. Instead, random repair has repair accuracy near chance,
+final error 0.0972, and regret 0.1104. The repair menu therefore contains
+incompatible actions.
+
+\paragraph{Single robust repair.}
+The single robust repair is the best one-size-fits-all repair learned from
+training domains. It uses the target mechanism distribution but refuses to
+condition on the target instance. It improves over nominal control, but its final
+error 0.0213 remains much worse than mechanism-first. This gap is the empirical
+signature of repair heterogeneity.
+
+\paragraph{Passive statistic tables.}
+The passive tables test increasingly rich statistic-only adaptation. Coarse
+statistics are repair-aliased: the task may still succeed, but repair accuracy
+is poor. Medium and fine tables are much stronger because they encode more of
+the nominal trajectory. This gradient is useful because it shows that the paper
+is not merely comparing mechanism-first to a weak passive baseline.
+
+\paragraph{Passive-vector nearest neighbor.}
+Passive-vector nearest neighbor matches the oracle in the main simulator. This
+is retained as a boundary result. In a low-dimensional deterministic task, a
+passive vector can become repair-sufficient. A hardware study should therefore
+include rich passive baselines before claiming active probes are necessary.
+
+\paragraph{Nuisance nearest neighbor.}
+Nuisance nearest neighbor adds lighting, texture, and appearance. It performs
+poorly not because nearest neighbor is weak, but because the similarity
+coordinate is wrong. Probe nearest neighbor uses the same basic algorithm and
+succeeds. The contrast isolates the adaptation-coordinate issue.
+
+\paragraph{Gain-only system identification.}
+Gain-only system identification is a partial mechanism estimator. It detects one
+mechanism but ignores delay, slip, and compliance. Its final error 0.0546 shows
+the cost of estimating a physical parameter that is useful but not sufficient
+for the repair decision.
+
+\paragraph{Probe nearest neighbor.}
+Probe nearest neighbor uses diagnostic residuals and learns labels from training
+examples. It matches mechanism-first in the clean simulator. This supports the
+coordinate claim more than the hand-coded classifier claim: a learned method can
+also succeed if its representation is repair-aligned.
+
+\paragraph{Oracles.}
+The mechanism oracle maps true mechanism labels to intended repairs. The
+best-repair oracle evaluates the repair library per domain. They match in the
+clean in-library sweep and diverge in boundary controls, where missing repairs
+or mixed mechanisms break the one-label repair map.
+
+\section{Claim-to-Evidence Map}
+
+\paragraph{Repair-equivalence is a meaningful coordinate.}
+The main sweep supports this claim because mechanism-first, probe nearest
+neighbor, and the mechanism oracle recover the best-repair oracle in the clean
+closed-library simulator. The limitation is that repair-equivalence is defined
+relative to a fixed loss and repair library.
+
+\paragraph{Statistic-only adaptation can be insufficient.}
+The proposition proves the statement for any statistic that aliases
+margin-separated repairs. The constructive counterexample table makes the
+condition explicit. Coarse passive statistics provide an empirical example. The
+limitation is that richer passive vectors can be sufficient.
+
+\paragraph{Diagnostic residuals can identify repair classes.}
+The main sweep and probe ablations support this claim in the simulator. The
+noise taxonomy limits it: the diagnostic coordinate fails when residuals are too
+corrupted. The method should therefore be paired with probe reliability checks.
+
+\paragraph{Mechanism labels require usable repairs.}
+Repair-library ablations support this claim. When delay-brake is removed,
+mechanism-first still diagnoses delay but cannot apply the intended action. The
+resulting regret is not a classifier failure; it is a repair-library failure.
+
+\paragraph{Out-of-library handling is unsolved.}
+Friction is physically out-of-library but repair-equivalent to an in-library
+response. Gain+delay is physically understandable but out-of-library as a repair
+composition. Distance-based rejection is not enough to solve this distinction.
+
+\section{Hardware Risk Cases Not Modeled}
+
+The simulator excludes several hardware risks. Sensing delay and actuation delay
+can interact, producing residuals that are not captured by the one-step actuation
+model. Contacts can be spatially distributed, with torque, object rotation,
+local deformation, and multiple contact patches. A probe that is safe at one
+contact point can be unsafe at another. Soft objects can change during probing,
+so the probe may alter the target domain rather than only observe it.
+
+Repairs can also have hidden costs. Slip-safe control may increase cycle time.
+Preload may damage fragile objects. Gain compensation may increase current draw.
+Delay compensation can reduce responsiveness. A deployment loss should include
+these costs if the repair is meant for hardware. Human safety constraints may
+also prohibit exploratory contact. In collaborative settings, even low-amplitude
+probes require an authorization layer.
+
+\section{Probe Synthesis Directions}
+
+The paper uses hand-designed probes to isolate the adaptation-coordinate
+question. A next step is to synthesize probes by maximizing expected repair
+information subject to safety constraints:
+\[
+\max_{\pi_p \in \Pi_{\mathrm{safe}}}
+I(r^\star(d); \phi_{\pi_p}(d)) - \lambda C(\pi_p).
+\]
+This objective is intentionally about repairs, not full domain identification. A
+probe that distinguishes two physical parameters with the same repair is less
+useful than a probe that distinguishes two domains with incompatible repairs.
+
+Probe synthesis should also include adversarial ambiguity search. Given a probe
+set, search for pairs of domains with similar probe residuals and different best
+repairs. Such pairs are the active-probe analogue of passive-aliasing
+counterexamples. If they exist with nontrivial margins, the probe set is not
+repair-sufficient.
+
+\section{Why the Small Simulator Is Still Useful}
+
+The simulator is intentionally small. It should not be used to claim broad
+real-world performance. Its value is diagnostic: it isolates the coordinate
+failure without perception, planning, or policy-learning confounds. It shows
+that different mechanisms can share task-level outcomes, that the same repair
+can cover many parameter values, that nuisance similarity can be misleading,
+that partial system identification can estimate the wrong sufficient variable,
+that active residuals can expose repair distinctions, and that missing repairs
+and mixed mechanisms break a closed-library method.
+
+These are design lessons rather than quantitative hardware predictions. A real
+robot will need richer dynamics, force limits, uncertainty estimates, and safety
+checks. The coordinate question remains unchanged: does the information used for
+adaptation distinguish the repairs the robot must choose between?
+
+\section{Additional Reproducibility Notes}
+
+The full-scale artifact is suite-split. Each condition writes aggregate CSV
+rows, and a standalone summarizer reloads the completed parts to regenerate
+figures, TeX tables, JSON, and Markdown. This workflow keeps RAM use low and
+ensures completed suites remain on disk even if later suites are interrupted.
+
+Figures are stored under \texttt{paper/figures}. Tables are stored under
+\texttt{results/full\_scale/tables}. Aggregate CSVs remain under
+\texttt{results/full\_scale}. The JSON summary is machine-readable; the Markdown
+summary is human-readable. Seeds and condition labels are recorded in the CSVs
+and artifact metadata.
+
+\section{Extended Discussion of Repair Regret}
+
+Repair regret is central because it measures the cost of choosing the wrong
+repair. Success can saturate and mechanism-label accuracy can be misleading if
+the label does not imply a useful action. Regret compares the selected repair to
+the best repair available in the same library for the same domain.
+
+In the main sweep, mechanism-first has zero measured regret because the labels
+align with the best repair. Coarse passive statistics have nonzero regret
+despite success 1.000. In repair-library ablations, regret reveals how much is
+lost when the intended repair is missing. In unknown controls, regret separates
+friction, where an in-library repair is adequate, from gain+delay, where the
+closed library lacks a good single repair.
+
+For hardware, regret is harder to measure because the best repair is not known
+without trying alternatives. A practical audit can estimate regret on repeatable
+fixtures, calibrated simulation, or safe counterfactual trials. If regret cannot
+be measured directly, the system should report residual final error and
+repair-switch outcomes after verification actions.
+
+\section{Learned Representation Implications}
+
+A learned representation can be repair-sufficient or repair-insufficient. If an
+embedding maps two domains close together because they share appearance but they
+require different repairs, it is repair-aliased. If it separates domains by best
+repair, it is a valid mechanism-first coordinate even if it is not interpretable.
+
+This suggests a representation-learning protocol: evaluate nearest-neighbor
+repair accuracy and repair regret in the embedding space; search for close pairs
+with different best repairs; train contrastive objectives where positives are
+repair-equivalent domains and negatives are domains with incompatible repairs.
+Such objectives may be more deployment-relevant than reconstructing every
+simulator parameter.
+
+\section{Domain Randomization Implications}
+
+Domain randomization and mechanism-first adaptation answer different questions.
+Randomization asks how to train a policy that tolerates variation.
+Mechanism-first asks which repair to select when variation has produced a
+deployment failure. They can be combined: a policy can be trained under broad
+randomization while a deployment monitor uses probes to choose repair modes or
+decide whether execution is safe.
+
+Repair-equivalence can also guide randomization design. If many randomized
+factors are repair-equivalent, the policy need not identify them separately. If
+two factors produce domains with different best repairs but identical deployment
+statistics, the training setup should include repair-relevant observations or
+diagnostic interventions.
+
+\section{Additional Hardware Audit Metrics}
+
+A hardware audit should report more than success and final position. Useful
+metrics include peak contact force, impulse, slip distance, object rotation,
+time-to-completion, number of probe actions, energy, actuator current,
+temperature, aborts, and post-repair residual error. The audit should also
+report whether the selected repair changes the distribution of near misses.
+
+For diagnostic probes, a confusion matrix should be weighted by repair regret.
+Misclassifying gain as compliance may be harmless if both repairs are
+conservative. Misclassifying delay as slip may be costly if it causes the
+controller to react at the wrong time. The cost of a mistake matters more than
+the name of the mistaken label.
+
+\section{Compositional Mechanisms}
+
+The gain+delay control is the clearest open problem. The target contains two
+in-library physical mechanisms, but the repair library is not compositional.
+Selecting gain compensation alone does not solve delay, and selecting
+delay-brake alone does not fully solve gain loss. A compositional extension
+would output a structured diagnosis such as
+$\{\mathrm{gain},\mathrm{delay}\}$ and synthesize a combined repair. This is not
+as simple as applying two repairs at once, because repairs can interact
+nonlinearly.
+
+\section{Unknown Detection Revisited}
+
+Unknown detection is harder than classification. The rejection variant uses
+probe-feature distance as a crude unknown score. That score is insufficient.
+Friction is physically unknown but repair-equivalent to an in-library response,
+so rejection is unnecessary. Gain+delay is near in-library components but
+out-of-library as a repair composition, so distance can miss it. A better
+unknown detector should estimate predicted repair regret or verify residual
+improvement after a candidate repair.
+
+\section{Final Artifact Acceptance Checklist}
+
+The final paper is intended to be judged against explicit acceptance criteria.
+First, the paper must state a narrow claim and avoid presenting simulator
+evidence as hardware evidence. Second, the experiments must include positive
+clean results, stronger passive baselines, nearest-neighbor baselines, partial
+system-identification baselines, oracles, ablations, noise stress, and negative
+controls. Third, the final manuscript must report final error and regret, not
+only thresholded success. Fourth, the artifact must include generated figures,
+tables, aggregate CSVs, a machine-readable summary, and a human-readable
+summary. Fifth, the final PDF must be compiled from the expanded manuscript
+after the full-scale artifacts are generated.
+
+The paper now satisfies the first four criteria in the repository state. The
+claim is explicitly bounded to a closed-library simulator. The evidence includes
+main sweeps, probe-noise taxonomy, probe-set ablation, mechanism imbalance,
+passive richness, scale sensitivity, repair ablation, unknown and mixed
+mechanisms, threshold sensitivity, and formal counterexamples. The metrics
+include success, final error, reward, regret, repair accuracy, mechanism
+accuracy, and rejection rate where applicable. The generated files are stored in
+the full-scale results directory and are used by the manuscript through figures
+and TeX table fragments.
+
+The remaining acceptance condition is external to the text: the final compiled
+PDF must be copied to the download directory only after page count, text audit,
+and artifact checks pass. This checklist is included in the appendix so that the
+paper's scope is auditable by reading the manuscript alone.
+
+\clearpage
+
+\section{Data Dictionary for Aggregate Rows}
+
+Each aggregate row in the full-scale CSVs has a consistent interpretation. The
+\texttt{suite} field names the experiment family, such as main sweep, probe
+noise, or repair ablation. The \texttt{condition} field names the specific
+stress condition, such as a noise type, a mechanism mix, a missing repair, or an
+unknown mechanism. The \texttt{seed} field records the deterministic random seed
+used for domain generation. The \texttt{train\_n} and \texttt{test\_n} fields
+record the number of sampled training and test domains used by that row. These
+counts differ across suites because the runner trades off breadth, nearest
+neighbor cost, and the need for repeated seeds.
+
+The \texttt{method} field names the adapter or oracle. The \texttt{n} field is
+the number of test domains summarized by that row. \texttt{success\_rate} is the
+fraction of domains whose final error is below the success threshold and whose
+overshoot is within the allowed bound. \texttt{mean\_final\_error} is the mean
+absolute distance from the target after the horizon. \texttt{p95\_final\_error}
+is included for tail behavior. \texttt{mean\_reward} records the simulator
+reward, which penalizes final error, action cost, and overshoot.
+
+The regret columns compare the selected repair against the best repair in the
+same finite repair library for the same domain. This is why repair ablation rows
+can have low regret under the reduced library while still being worse than the
+full-library main sweep. \texttt{repair\_accuracy} is the fraction of domains
+where the selected repair equals the best-repair oracle. For methods that output
+a mechanism label, \texttt{mechanism\_accuracy} compares the predicted mechanism
+to the true in-library mechanism. In unknown controls, this value is
+interpretable only for methods that still force an in-library label. The
+\texttt{unknown\_reject\_rate} field records how often a rejection-capable method
+returns an unknown label.
+
+This dictionary is included because the CSVs are the authoritative evidence
+artifact. The paper text reports selected aggregates, but the rows allow a
+reviewer to recompute the means, inspect per-condition seeds, and check whether
+a conclusion depends on one stress suite.
+
+\section{Command Ledger and Execution Strategy}
+
+The full-scale evidence was generated by a RAM-light two-stage workflow. The
+runner \texttt{experiments/full\_scale\_mechanism\_first.py} can execute the
+entire suite, but the final artifact uses suite-split execution so each
+condition writes compact rows immediately. This avoids holding all raw episodes
+or all suite outputs in memory at once. It also means that completed conditions
+are preserved if a later stress test is interrupted.
+
+The main sweep writes \texttt{main\_sweep.csv} and
+\texttt{main\_by\_mechanism.csv}. Noise and probe ablations write single CSVs
+because each suite completes quickly. Mechanism mixtures, scale sweeps, repair
+ablations, unknown controls, and threshold sensitivity can be written as
+condition-split files such as \texttt{mechanism\_mix\_gain\_heavy.csv} or
+\texttt{repair\_ablation\_missing\_delay\_brake.csv}. The standalone summarizer
+\texttt{scripts/summarize\_full\_scale\_results.py} reloads both base files and
+condition parts, preferring condition parts when they exist. It then regenerates
+the figures, TeX tables, JSON summary, and Markdown summary.
+
+The important engineering decision is that raw traces are not the unit of
+storage. The unit of storage is a compact aggregate with enough metadata to
+audit the condition. This is appropriate for this simulator because the dynamics
+are deterministic given a domain and repair, and because the paper's claims are
+about repair-coordinate performance across sampled domains. If a later hardware
+study uses stochastic rollouts, the same structure should be extended with
+within-domain repeats and confidence intervals over repeated trials.
+
+The execution strategy also separates evidence generation from manuscript
+compilation. Figures are generated from CSVs, not hand copied from notebooks.
+Tables are generated as TeX fragments. The manuscript includes those generated
+fragments. This reduces the chance that a number in the paper drifts away from
+the artifact on disk.
+
+\section{Artifact Inventory}
+
+The repository contains the simulator, the full-scale runner, the standalone
+summarizer, the generated aggregate CSVs, TeX tables, figures, formal
+counterexamples, literature notes, claim audits, and reproducibility notes. The
+final paper is generated only after the full-scale artifacts are present. The
+PDF copied to the download directory is the verified final artifact, not an
+intermediate build.
 
 \end{document}

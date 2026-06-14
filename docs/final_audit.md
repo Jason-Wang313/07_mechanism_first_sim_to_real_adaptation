@@ -103,3 +103,39 @@ Checked: 2026-06-12 21:26:02 +01:00
 Terminal decision: workshop-only
 Key change: added diagnostic probe-noise stress and narrowed the claim to reliable probe residuals.
 Canonical PDF target: C:/Users/wangz/Downloads/07.pdf, 240658 bytes
+
+## Full-Scale Final Pass
+
+Checked: 2026-06-14
+
+Terminal batch decision: final full-scale simulation paper under the 25-page
+batch standard; still not hardware-validated.
+
+Key changes:
+
+- Added `docs/full_scale_execution_plan.md` before paper edits.
+- Added `experiments/full_scale_mechanism_first.py` for broad compact aggregate
+  experiments.
+- Added `scripts/summarize_full_scale_results.py` to regenerate figures, TeX
+  tables, JSON, and Markdown from suite CSVs.
+- Expanded the manuscript to 25 pages with main results, stress tests,
+  ablations, negative controls, formal counterexamples, reproducibility details,
+  and claim-boundary appendices.
+
+Final full-scale evidence:
+
+- Compact aggregate rows: 1,151.
+- Represented method-domain evaluations: 756,750.
+- Artifact metadata rows: 101.
+- Constructive passive-aliasing counterexamples: 20.
+- Main mechanism-first final error: 0.0018.
+- Fine passive-statistic final error: 0.0026.
+- Coarse passive-statistic final error: 0.0073.
+- Gaussian probe-noise level 0.04 mechanism accuracy: 0.828.
+
+Final verification:
+
+- `paper/main.pdf`: 25 pages, 1,197,170 bytes.
+- PDF text audit found no stale hardening/workshop/version markers.
+- LaTeX log scan found no fatal errors, undefined references, undefined
+  citations, or overfull matches.
