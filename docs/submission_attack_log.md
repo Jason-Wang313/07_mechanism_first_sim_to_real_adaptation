@@ -11,3 +11,10 @@
   - Response: Preserved as a limitation; out-of-library detection is not claimed.
 - Attack: No hardware.
   - Response: Terminal decision is workshop-only.
+
+## Artifact Hardening Note
+
+The 2026-06-21 export explicitly installs the visible VLA-v4 boxed-link convention:
+green citation/URL boxes, red internal-reference boxes, one-point borders, and no
+cyan link boxes in the audited final PDF. The previous final PDF had no link
+annotations because active `paper/main.tex` did not load `hyperref`.

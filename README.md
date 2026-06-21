@@ -53,3 +53,12 @@ canonical final PDF is `C:/Users/wangz/Downloads/07.pdf` after verification.
 The claim remains honestly bounded to simulation: mechanism-first repair
 coordinates are supported in the closed-library simulator, with explicit probe
 noise, missing-repair, and mixed-mechanism failure cases.
+
+Current final export: 25 pages, 1,241,363 bytes, SHA256 `EF54EDF6F2F0396D0C784CF563C8E8957D4253A29CEF0D050A9B99083BF43764`.
+
+VLA-style boxed-link verification:
+
+- Link annotations: 41 total on pages `[(1, 13), (4, 2), (5, 2), (7, 1), (8, 2), (9, 1), (10, 6), (11, 14)]`.
+- Annotation colors: green = 33, red = 8, cyan = 0.
+- Border widths: `(0, 0, 1)` for all link annotations.
+- Visual audit: rendered pages 1, 4, 5, 7, 8, 9, 10, and 11; green citation/URL boxes and red internal-reference boxes are crisp and aligned.
