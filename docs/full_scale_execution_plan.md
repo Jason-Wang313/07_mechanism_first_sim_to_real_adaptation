@@ -139,3 +139,15 @@ The final manuscript should:
 8. Docs/logs/readme/reproducibility/audits are updated to final full-scale state.
 9. Local `paper/main.pdf` is removed after copying the final PDF.
 10. Repo is committed, pushed, clean, and upstream-matched before moving to paper 08.
+
+## Post-v3 VLA Link-Hardening Acceptance
+
+Checked: 2026-06-21
+
+- Active `paper/main.tex` now loads `hyperref` and the explicit VLA-style `\hypersetup` policy.
+- Final PDF remains 25 pages and is exported to `C:/Users/wangz/Downloads/07.pdf`.
+- Final export metadata: 1,241,363 bytes, SHA256 `EF54EDF6F2F0396D0C784CF563C8E8957D4253A29CEF0D050A9B99083BF43764`.
+- Link inventory: 41 annotations on pages `[(1, 13), (4, 2), (5, 2), (7, 1), (8, 2), (9, 1), (10, 6), (11, 14)]`; green = 33, red = 8, cyan = 0; all borders `(0, 0, 1)`.
+- Visual audit rendered pages 1, 4, 5, 7, 8, 9, 10, and 11 and confirmed crisp, aligned green citation/URL boxes and red internal-reference boxes.
+- Local `paper/main.pdf` was removed after the canonical copy.
+- No duplicate `C:/Users/wangz/Downloads/7.pdf` was created.

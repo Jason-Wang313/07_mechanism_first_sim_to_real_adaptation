@@ -39,3 +39,12 @@ human-readable report is `results/full_scale/full_scale_results_summary.md`.
 The artifact is final under the batch standard and has enough real content for
 the 25-page threshold. The scientific claim remains simulation-only and is
 bounded accordingly in the manuscript.
+
+## Final Artifact
+
+- Canonical PDF: `C:/Users/wangz/Downloads/07.pdf`
+- Pages: 25
+- Size: 1,241,363 bytes
+- SHA256: `EF54EDF6F2F0396D0C784CF563C8E8957D4253A29CEF0D050A9B99083BF43764`
+- VLA-style boxed-link inventory: 41 annotations on pages `[(1, 13), (4, 2), (5, 2), (7, 1), (8, 2), (9, 1), (10, 6), (11, 14)]`; green = 33, red = 8, cyan = 0; all borders `(0, 0, 1)`.
+- Visual audit: rendered pages 1, 4, 5, 7, 8, 9, 10, and 11 after export and confirmed crisp, aligned link boxes.

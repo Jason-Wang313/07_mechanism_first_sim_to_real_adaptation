@@ -79,13 +79,21 @@ Workshop-only for immediate submission; strong-revise for a main-conference targ
 
 ## 11. Exact Downloads PDF path
 
-`C:/Users/wangz/Downloads/07.pdf`
+`C:/Users/wangz/Downloads/07.pdf` (25 pages, 1,241,363 bytes, SHA256 `EF54EDF6F2F0396D0C784CF563C8E8957D4253A29CEF0D050A9B99083BF43764`)
 
-## 12. GitHub URL
+## 12. VLA-style boxed-link audit
+
+41 link annotations on pages `[(1, 13), (4, 2), (5, 2), (7, 1), (8, 2), (9, 1), (10, 6), (11, 14)]`; colors green = 33, red = 8, cyan = 0; all borders `(0, 0, 1)`.
+
+## 13. Visual link audit
+
+Pages 1, 4, 5, 7, 8, 9, 10, and 11 rendered after export; green citation/URL boxes and red internal-reference boxes are crisp and aligned.
+
+## 14. GitHub URL
 
 `https://github.com/Jason-Wang313/07_mechanism_first_sim_to_real_adaptation`
 
-## 13. Visible Desktop PDF copy status
+## 15. Visible Desktop PDF copy status
 
 `present`
 
@@ -135,7 +143,17 @@ Final full-scale evidence:
 
 Final verification:
 
-- `paper/main.pdf`: 25 pages, 1,197,170 bytes.
+- `paper/main.pdf`: 25 pages, 1,241,363 bytes before canonical export; removed after the Downloads copy.
 - PDF text audit found no stale hardening/workshop/version markers.
 - LaTeX log scan found no fatal errors, undefined references, undefined
   citations, or overfull matches.
+
+## VLA-Style Link Hardening
+
+Checked: 2026-06-21
+Action: Added `hyperref` plus explicit VLA-style `\hypersetup` policy, rebuilt with `pdflatex`, `bibtex`, `pdflatex`, `pdflatex`, copied the final PDF to Downloads, and removed local `paper/main.pdf`.
+Decision: Final link styling matches the visible VLA-v4 role model; this pass added boxed links to a previously unlinked final PDF.
+Downloads PDF: C:/Users/wangz/Downloads/07.pdf (25 pages, 1,241,363 bytes, SHA256 `EF54EDF6F2F0396D0C784CF563C8E8957D4253A29CEF0D050A9B99083BF43764`)
+Link audit: 41 annotations on pages `[(1, 13), (4, 2), (5, 2), (7, 1), (8, 2), (9, 1), (10, 6), (11, 14)]`; green = 33, red = 8, cyan = 0; all borders `(0, 0, 1)`.
+Visual audit: rendered pages 1, 4, 5, 7, 8, 9, 10, and 11; boxes are crisp and aligned.
+Filename policy: no duplicate `C:/Users/wangz/Downloads/7.pdf` created.

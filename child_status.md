@@ -2,8 +2,8 @@
 
 ## Current Stage
 
-Final full-scale paper complete locally; final PDF verified at 25 pages and ready
-for canonical copy to `C:/Users/wangz/Downloads/07.pdf`.
+VLA-style boxed-link hardening complete; final artifact exported and verified at
+`C:/Users/wangz/Downloads/07.pdf`.
 
 ## Full-Scale Evidence
 
@@ -31,7 +31,12 @@ for canonical copy to `C:/Users/wangz/Downloads/07.pdf`.
 ## Verification
 
 - Built with `pdflatex`, `bibtex`, `pdflatex`, `pdflatex` from `paper/`.
-- `paper/main.pdf`: 25 pages, 1,197,170 bytes.
+- Added explicit `hyperref` plus VLA-style boxed-link policy to `paper/main.tex`; the baseline final PDF had no link annotations.
+- Copied final verified PDF to `C:/Users/wangz/Downloads/07.pdf` (25 pages, 1,241,363 bytes, SHA256 `EF54EDF6F2F0396D0C784CF563C8E8957D4253A29CEF0D050A9B99083BF43764`).
+- Final link inventory: 41 annotations on pages `[(1, 13), (4, 2), (5, 2), (7, 1), (8, 2), (9, 1), (10, 6), (11, 14)]`; colors green = 33, red = 8, cyan = 0; all borders `(0, 0, 1)`.
+- Rendered and visually inspected pages 1, 4, 5, 7, 8, 9, 10, and 11; highlighted boxes are crisp and aligned.
+- Local `paper/main.pdf` removed after canonical copy.
+- No duplicate `C:/Users/wangz/Downloads/7.pdf` was created.
 - Log scan found no LaTeX errors, undefined references/citations, or overfull matches.
 - PDF text scan found no stale `Submission-hardening`, `workshop`, `v2`, `TODO`,
   `placeholder`, `draft`, `accidental`, or `cleanup` markers.
